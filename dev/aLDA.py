@@ -19,23 +19,20 @@ from sklearn.preprocessing import normalize
 import time
 
 #%%
-def sigmoid(x):                                        
-      return 1 / (1 + np.exp(-x))
 
-# needs to be upgraded to non constant beta/alpha
 class aLDA_estimator():
-      def __init__(self, K, data, A, alpha, beta):
+      def __init__(self, K, data, AMask, alpha, beta):
             '''
             Input:
             - K = [int] nb of topics
             - data = [n_w,n_d int] nb words * nb doc matrix of word index
-            - A = [n_a,n_d float] nb authors * nb doc matrix of author contribution to each paper
-                  must sum to 1
+            - AMask = [n_a,n_d float] nb authors * nb doc matrix of author contribution to each paper
+                  (1 if author participated to paper)
             - alpha,beta [float] priors on theta and phi
             '''
             self.K = K # [int] nb of topics
-            self.A = A # [n_a,n_d float] matrix of author contribution to each paper
-            self.n_a = self.A.shape[0] # [int] nb authors 
+            self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
+            self.n_a = self.AMask.shape[0] # [int] nb authors 
             self.M = data # [n_w,n_d int] matrix of word index
             self.n_dic = int(data.max())+1 # [int] nb words in dictionary
             if np.size(alpha) == 1:
@@ -59,19 +56,19 @@ class aLDA_estimator():
                   self.D[w,:] = np.sum(self.M==w,0) 
             
                         
-      def loglik(self, theta, phi):
+      def loglik(self, theta, phi, A):
             '''
             Computes the log likelihood and priors of a given a set of parameters.
             Input:
                   - theta [K,n_a float] each column is the distribution of topics for an author
                   - phi [n_dic,K float] each column is the distribution of words for a thopic
+                  - A [n_a,n_d float] each column is the distribution of authors for a document
             '''
-            M = np.sum(np.sum(np.log(phi.dot(theta).dot(self.A))*self.D)) # Likelihood
-            ptheta = np.sum((self.alpha-1).dot(np.log(theta))) # Dirichlet prior 
+            M = np.sum(np.sum(np.log(phi.dot(theta).dot(A))*self.D)) # Likelihood
+            pTheta = np.sum((self.alpha-1).dot(np.log(theta))) # Dirichlet prior 
             pPhi = np.sum((self.beta-1).dot(np.log(phi))) # Dirichlet prior 
-#            pPhi = np.sum(np.log(np.sum(phi**self.beta,0))) # Strange prior to be checked
-#            ptheta = np.sum(np.log(np.sum(theta**self.alpha,0))) # Strange prior to be checked
-            return(M,ptheta,pPhi)
+            pA = 1
+            return(M,pTheta,pPhi,pA)
             
       def gd_ll(self, step, n_itMax, tolerance, b_mom , X0, Y0):
             '''
@@ -83,47 +80,54 @@ class aLDA_estimator():
             step :
             '''
             # Utility variables -----------------------------------------------
-            self.llgd = np.zeros((n_itMax,3))
+            self.llgd = np.zeros((n_itMax,4))
             
             # initialize ------------------------------------------------------
             X = np.random.normal(0,4,(self.K,self.n_a))
             Y = np.random.normal(0,4,(self.n_dic,self.K))
-#            X = X0
-#            Y = Y0
-#            theta = sigmoid(X)
-#            phi = sigmoid(Y)
-            theta = np.exp(X)
-            phi = np.exp(Y)
-#            theta = np.random.dirichlet(np.ones(self.K),(self.n_a)).transpose()
-#            phi = np.random.dirichlet(np.ones(self.n_dic),(self.K)).transpose()
-            thetaB = normalize(theta,'l1',0)
-            phiB = normalize(phi,'l1',0)  
+            Z = np.random.normal(0,4,(self.AMask.shape))
+            
+            theta = normalize(np.exp(X),'l1',0)
+            phi = normalize(np.exp(Y),'l1',0)
+            A = normalize(self.AMask*np.exp(Z),'l1',0)
+            
             VX = np.zeros((self.K,self.n_a))
             VY = np.zeros((self.n_dic,self.K))
-            self.llgd[0,:] = self.loglik(thetaB,phiB)
+            VZ = np.zeros(self.AMask.shape)
+            
+            self.llgd[0,:] = self.loglik(theta,phi,A)
 
             # gradient descent to maximize the posterior likelihood ----------- 
-            for it in range(n_itMax-1):
+            for it in range(n_itMax-1): 
+                  # Ratio matrix (\tilde{D} in paper)
+                  Dg = self.D/(phi.dot(theta.dot(A)))
                   
-                  Dg = self.D/(phiB.dot(thetaB.dot(self.A)))
-#                  dX = thetaB*(1-theta)*(phiB.transpose().dot(Dg.dot(self.A.T))-np.diag(self.A.dot(Dg.T.dot(phiB.dot(thetaB)))))+self.alpha*(thetaB**alpha)/np.sum(thetaB**alpha,0)
-#                  dY = phiB*(1-phi)*(Dg.dot(self.A.T.dot(thetaB.T))-np.diag(phiB.T.dot(Dg.dot(self.A.T.dot(thetaB.T)))))+self.alpha*(phiB**beta)/np.sum(phiB**beta,0)
-                  dX = thetaB*(phiB.transpose().dot(Dg.dot(self.A.T))-np.diag(self.A.dot(Dg.T.dot(phiB.dot(thetaB)))))+30*(self.alpha[:, None]-1-thetaB*np.sum(self.alpha-1))
-                  dY = phiB*(Dg.dot(self.A.T.dot(thetaB.T))-np.diag(phiB.T.dot(Dg.dot(self.A.T.dot(thetaB.T)))))+30*(self.beta[:, None]-1-phiB*np.sum(self.beta-1))
+                  # Compute gradient
+                  dX = theta*(phi.T.dot(Dg.dot(A.T))-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+30*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
+                  dY = phi*(Dg.dot(A.T.dot(theta.T))-np.diag(phi.T.dot(Dg.dot(A.T.dot(theta.T)))))+30*(self.beta[:, None]-1-phi*np.sum(self.beta-1))
+                  dZ = A*(theta.T.dot(phi.T.dot(Dg)-np.diag(Dg.T.dot(phi.dot(theta.dot(A))))))
+                  
+                  # Update step 
                   VX = b_mom*VX + (1-b_mom)*dX
                   VY = b_mom*VY + (1-b_mom)*dY
+                  VZ = b_mom*VZ + (1-b_mom)*dZ
                   X = X + step*VX
                   Y = Y + step*VY
-                  theta = np.exp(X)
-                  phi = np.exp(Y)
-                  thetaB = normalize(theta,'l1',0)
-                  phiB = normalize(phi,'l1',0)    
-                  self.llgd[it+1,:] = self.loglik(thetaB,phiB)
+                  Z = Z + step*VZ
+                  
+                  theta = normalize(np.exp(X),'l1',0)
+                  phi = normalize(np.exp(Y),'l1',0)    
+                  A = normalize(self.AMask*np.exp(Z),'l1',0) 
+                  # Store ll
+                  self.llgd[it+1,:] = self.loglik(theta,phi,A)
                   if np.mod(it+1,10) ==0:
                         print(it+1)
                         print(self.llgd[it+1]/self.llgd[it+1-10])
-            self.thetaStar = thetaB
-            self.phiStar = phiB
+                        
+            # Store estimates
+            self.thetaStar = theta
+            self.phiStar = phi
+            self.AStar = A
 
 def loglikaLDA(theta, phi, A, D, alpha, beta):
       '''
@@ -135,43 +139,30 @@ def loglikaLDA(theta, phi, A, D, alpha, beta):
       M = np.sum(np.sum(np.log(phi.dot(theta).dot(A))*D)) # Likelihood
       ptheta = np.sum(np.sum(np.log(theta)*(alpha-1))) # Dirichlet prior 
       pPhi = np.sum(np.sum(np.log(phi)*(beta-1))) # Dirichlet prior 
-#            pPhi = np.sum(np.log(np.sum(phi**self.beta,0))) # Strange prior to be checked
-#            ptheta = np.sum(np.log(np.sum(theta**self.alpha,0))) # Strange prior to be checked
-      return(M,ptheta,pPhi)
+      pA = 1
+      return(M,ptheta,pPhi,pA)
 #%% Generate data and test
-n_d = 10000
-n_dic = 800
+n_d = 900
+n_dic = 80
 n_w = 400
-n_a = 200
-K = 20
+n_a = 10
+K = 5
 
-beta = 0.9
-alpha = 0.9
+beta = 0.3
+alpha = 0.3
 # only na = nd |
 #A = np.eye(n_a)
-A = np.zeros((n_a,n_d))
+AStar = np.zeros((n_a,n_d))
 for d in range(n_d):
-      A[np.random.choice(n_a, 4),d] = 1/4
+      AStar[np.random.choice(n_a, 4,replace=False),d] = 1/4
+AMask = AStar>0
 Adic = {}
 for a in  range(n_a):
-      Adic[str(a)] = list(np.where(A[a,:]>0)[0])
+      Adic[str(a)] = list(np.where(AStar[a,:]>0)[0])
       
-      
-#thetaStar = np.zeros((K,n_a))
-#for a in range(n_a):
-#      u = np.ones(K)
-#      u[np.random.choice(K)] = alpha+1
-#      thetaStar[:,a] = np.random.dirichlet(u)
-#      
-#      
-#phiStar = np.zeros((n_dic,K))
-#for a in range(K):
-#      u = np.ones(n_dic)
-#      u[np.random.choice(n_dic)] = beta+1
-#      phiStar[:,a] = np.random.dirichlet(u)
 thetaStar = np.random.dirichlet(np.ones(K)*alpha,(n_a)).transpose()
 phiStar = np.random.dirichlet(np.ones(n_dic)*beta,(K)).transpose()
-thetaDoc = thetaStar.dot(A)
+thetaDoc = thetaStar.dot(AStar)
 
 #print(np.sum(theta,0),np.sum(varphi,0))
 
@@ -194,14 +185,14 @@ for d in range(n_d):
 #%%
 
 t1 = time.time()
-aaa = aLDA_estimator(K, W, A, alpha, beta)
-aaa.gd_ll(0.0004, 120, 0,0.5983128,0,0)
+aaa = aLDA_estimator(K, W, AMask, alpha, beta)
+aaa.gd_ll(0.00004, 1600, 0,0.05983128,0,0)
 #plt.plot(np.sum(aaa.llgd,1)/np.sum(aaa.loglik(thetaStar,phiStar)))
-plt.plot(aaa.llgd/aaa.loglik(thetaStar,phiStar))
+plt.plot(aaa.llgd/aaa.loglik(thetaStar,phiStar,AStar))
 print('elapsed'+str(time.time()-t1))
 
 
-print(np.sum(aaa.loglik(thetaStar,phiStar)),np.sum(aaa.llgd[-1]))#,aaa.loglik(theta_lda,phi_lda))
+print(np.sum(aaa.loglik(thetaStar,phiStar,AStar)),np.sum(aaa.llgd[-1]))#,aaa.loglik(theta_lda,phi_lda))
 #%%
 from gensim.models import AuthorTopicModel
 t1 = time.time()
@@ -214,7 +205,7 @@ for a in  range(n_a):
       thetaGen[:,a] = [b for (c,b) in model.get_author_topics(str(a),0)]
 
 #%%
-n_d_test = 5000
+n_d_test = 500
 
 A_test = np.zeros((n_a,n_d_test))
 for d in range(n_d_test):
@@ -228,12 +219,11 @@ for d in range(n_d_test):
       # generate number words in doc
       n_ = n_w
       # generate words
-      Z_test[:,d] = np.random.multinomial(1,thetaDoc[:,d],n_).argmax(1).astype(int)
+      Z_test[:,d] = np.random.multinomial(1,thetaDoc_test[:,d],n_).argmax(1).astype(int)
       for w in range(n_):
             # Store topic|
             W_test[w,d] = int(np.random.multinomial(1,phiStar[:,int(Z_test[w,d])]).argmax())
             D_test[W_test[w,d],d] += 1
-#      W_test_.append([(k,D_test[k,d]) for k in range(n_dic)])
 
 
 #%%

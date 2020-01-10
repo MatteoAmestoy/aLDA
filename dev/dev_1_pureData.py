@@ -21,24 +21,35 @@ data_df_authors = pd.read_pickle(path + r'\authorsDB.pkl')
 n_authors = len(data_df_authors['unitList'])
 
 #%%
+
+d_max = 500
+
 stopset = stopwords.words('english') 
 unwantedchar = string.punctuation + string.digits
 
 corpus = []
-all_docs = []
-vocab = set()
+authorDoc = []
 
+vocab = set()
+authors = set()
 stemmer = PorterStemmer()
 i = 0
-for doc in data_df_journals['abstract']:
-      i += 1
-      if i< 6000:
+for index,row in data_df_journals.iterrows():
+      if i<d_max+1:
+            doc = row['abstract']
+            aut = [a for a in row['authorsID'] if a !=-1]
             doc_ = doc.translate(str.maketrans(unwantedchar,' '*len(unwantedchar)))           
-            doc_ = [x for x in doc_.split() if len(x)>3] 
+            doc_ = [stemmer.stem(x) for x in doc_.split() if len(x)>5] 
             doc_ = [x.lower() for x in doc_ if x not in stopset] 
             vocab.update(doc_)
             corpus.append(doc_)
+            
+            authors.update(aut)
+            authorDoc.append(aut)
+            i +=1
 vocab = list(vocab)
+authors = list(authors)
+
 #%%
 vocab2id = preprocessing.LabelEncoder()
 vocab2id.fit(vocab)
@@ -46,6 +57,24 @@ vocab2id.fit(vocab)
 vocabId = vocab2id.transform(vocab)
 corpusId = [ vocab2id.transform(x) for x in corpus]
 
+aut2id = preprocessing.LabelEncoder()
+aut2id.fit(authors)
+
+autId = vocab2id.transform(authors)
+authorDocId = [ vocab2id.transform(x) for x in authorDoc]
+
 #%%
+max_len = max([len(x) for x in corpusId])
+D = np.zeros((max_len,d_max)) -1
+AMask = 
+for d in range(d_max):
+      D[:len(corpusId[d]),d] = corpusId[d]
+
+
+
+
+
+
+
 
   

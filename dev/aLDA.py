@@ -32,7 +32,7 @@ class aLDA_estimator():
             '''
             self.K = K # [int] nb of topics
             self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
-            self.n_a = self.AMask.shape[0] # [int] nb authors 
+            self.n_a,self.n_d = self.AMask.shape # [int] nb authors 
             self.M = data # [n_w,n_d int] matrix of word index
             self.n_dic = int(data.max())+1 # [int] nb words in dictionary
             if np.size(alpha) == 1:
@@ -48,8 +48,6 @@ class aLDA_estimator():
             else:
                   print('alpha error size (should be 1 or N)')           
             
-            
-            self.n_w,self.n_d = data.shape # nb words per doc, nb doc
             
             self.D = np.zeros((self.n_dic,self.n_d)) # [n_dic,n_d int] matrix of count for each word 
             for w in range(self.n_dic):
@@ -143,8 +141,8 @@ def loglikaLDA(theta, phi, A, D, alpha, beta):
       pA = 1
       return(M,ptheta,pPhi,pA)
 #%% Generate data and test
-n_d = 500
-n_dic = 200
+n_d = 50
+n_dic = 20
 n_w = 200
 n_a = 250
 K = 200

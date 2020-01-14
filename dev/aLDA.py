@@ -21,14 +21,16 @@ import time
 #%%
 
 class aLDA_estimator():
-      def __init__(self, K, data, AMask, alpha, beta):
+      def __init__(self, K, data, AMask, alpha, beta, gamma):
             '''
             Input:
             - K = [int] nb of topics
             - data = [n_w,n_d int] nb words * nb doc matrix of word index
             - AMask = [n_a,n_d float] nb authors * nb doc matrix of author contribution to each paper
                   (1 if author participated to paper)
-            - alpha,beta [float] priors on theta and phi
+            - alpha[n_a float] priors on theta
+            - beta [n_dic float] priors on  phi
+            - gamma [flaot] prior on A
             '''
             self.K = K # [int] nb of topics
             self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
@@ -36,18 +38,18 @@ class aLDA_estimator():
             self.M = data # [n_w,n_d int] matrix of word index
             self.n_dic = int(data.max())+1 # [int] nb words in dictionary
             if np.size(alpha) == 1:
-                  self.alpha = alpha*np.ones(K) # [float] prior theta
-            elif np.size(alpha) == K:
+                  self.alpha = alpha*np.ones(self.K) # [float] prior theta
+            elif np.size(alpha) == self.K:
                   self.alpha = alpha
             else:
                   print('alpha error size (should be 1 or K)')
             if np.size(beta) == 1:
-                  self.beta = beta*np.ones(n_dic) # [float] prior phi
-            elif np.size(beta) == n_dic:
+                  self.beta = beta*np.ones(self.n_dic) # [float] prior phi
+            elif np.size(beta) == self.n_dic:
                   self.beta = beta # [float] prior phi
             else:
                   print('alpha error size (should be 1 or N)')           
-            
+            self.gamma = gamma
             
             self.D = np.zeros((self.n_dic,self.n_d)) # [n_dic,n_d int] matrix of count for each word 
             for w in range(self.n_dic):
@@ -63,9 +65,9 @@ class aLDA_estimator():
                   - A [n_a,n_d float] each column is the distribution of authors for a document
             '''
             M = np.sum(np.sum(np.log(phi.dot(theta).dot(A))*self.D)) # Likelihood
-            pTheta = np.sum((self.alpha-1).dot(np.log(theta))) # Dirichlet prior 
-            pPhi = np.sum((self.beta-1).dot(np.log(phi))) # Dirichlet prior 
-            pA = 1
+            pTheta = np.sum((self.alpha - 1).dot(np.log(theta))) # Dirichlet prior 
+            pPhi = np.sum((self.beta - 1).dot(np.log(phi))) # Dirichlet prior 
+            pA = (self.gamma - 1)*np.sum(np.log(A**self.AMask)) # Dirichlet prior constant gamma
             return(M,pTheta,pPhi,pA)
             
       def gd_ll(self, step, n_itMax, tolerance, b_mom , X0, Y0):
@@ -81,9 +83,9 @@ class aLDA_estimator():
             self.llgd = np.zeros((n_itMax,4))
             
             # initialize ------------------------------------------------------
-            X = np.random.normal(0,4,(self.K,self.n_a))
-            Y = np.random.normal(0,4,(self.n_dic,self.K))
-            Z = np.ones((self.AMask.shape))#np.random.normal(0,4,(self.AMask.shape))#
+            X = np.random.normal(0,1,(self.K,self.n_a))
+            Y = np.random.normal(0,1,(self.n_dic,self.K))
+            Z = np.random.normal(0,1,(self.AMask.shape))#np.ones((self.AMask.shape))#Î
             
             theta = normalize(np.exp(X),'l1',0)
             phi = normalize(np.exp(Y),'l1',0)
@@ -101,19 +103,19 @@ class aLDA_estimator():
                   Dg = self.D/(phi.dot(theta.dot(A)))
                   
                   # Compute gradient and update
-                  dX = theta*(phi.T.dot(Dg.dot(A.T))-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+100*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
+                  dX = theta*(phi.T.dot(Dg.dot(A.T))-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+1*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
                   VX = b_mom*VX + (1-b_mom)*dX
                   X = X + step*VX
                   theta = normalize(np.exp(X),'l1',0)
                   
-                  dY = phi*(Dg.dot(A.T.dot(theta.T))-np.diag(phi.T.dot(Dg.dot(A.T.dot(theta.T)))))+100*(self.beta[:, None]-1-phi*np.sum(self.beta-1))
+                  dY = phi*(Dg.dot(A.T.dot(theta.T))-np.diag(phi.T.dot(Dg.dot(A.T.dot(theta.T)))))+1*(self.beta[:, None]-1-phi*np.sum(self.beta-1))
                   VY = b_mom*VY + (1-b_mom)*dY
                   Y = Y + step*VY
                   phi = normalize(np.exp(Y),'l1',0)
                   
                   
                   dZ = A*(theta.T.dot(phi.T.dot(Dg)-np.diag(Dg.T.dot(phi.dot(theta.dot(A))))))
-                  VZ = b_mom*VZ + (1-b_mom)*dZ
+                  VZ = b_mom*VZ + (1-b_mom)*dZ+1*((self.gamma-1)*(1-A*np.sum(self.AMask,0)))
                   Z = Z + step*VZ    
                   A = normalize(self.AMask*np.exp(Z),'l1',0) 
                   
@@ -128,7 +130,7 @@ class aLDA_estimator():
             self.phiStar = phi
             self.AStar = A
 
-def loglikaLDA(theta, phi, A, D, alpha, beta):
+def loglikaLDA(theta, phi, A, D, alpha, beta, gamma):
       '''
       Computes the log likelihood and priors of a given a set of parameters.
       Input:
@@ -138,22 +140,28 @@ def loglikaLDA(theta, phi, A, D, alpha, beta):
       M = np.sum(np.sum(np.log(phi.dot(theta).dot(A))*D)) # Likelihood
       ptheta = np.sum(np.sum(np.log(theta)*(alpha-1))) # Dirichlet prior 
       pPhi = np.sum(np.sum(np.log(phi)*(beta-1))) # Dirichlet prior 
-      pA = 1
+      pA = (gamma - 1)*np.sum(np.log(A**(A>0))) # Dirichlet prior constant gamma
       return(M,ptheta,pPhi,pA)
 #%% Generate data and test
-n_d = 50
-n_dic = 20
-n_w = 200
-n_a = 250
-K = 200
+n_d = 300
+n_dic = 2000
+n_w = 20
+n_a = 100
+n_a_mean = 1
+K = 60
 
 beta = 1.1
-alpha = 1.1
+alpha = 1.5
+gamma = 2
 # only na = nd |
 #A = np.eye(n_a)
 AStar = np.zeros((n_a,n_d))
+Ddic = {}
 for d in range(n_d):
-      AStar[np.random.choice(n_a, 4,replace=False),d] = [0.5,0.2,0.2,0.1]
+      p =list(np.ones(n_a_mean))+list( (1+np.arange(n_a_mean))/(n_a_mean+1))[::-1]
+      nb_a_ = np.random.choice(n_a_mean*2,p = p/np.sum(p),replace=False )+1
+      AStar[np.random.choice(n_a, nb_a_,replace=False),d] = 1/nb_a_#np.random.dirichlet(np.ones(nb_a_)*gamma)#
+      Ddic[str(d)] =  [str(a) for a in list(np.where(AStar[:,d]>0)[0])]
 AMask = AStar>0
 Adic = {}
 for a in  range(n_a):
@@ -180,19 +188,20 @@ for d in range(n_d):
             W[w,d] = int(np.random.multinomial(1,phiStar[:,int(Z[w,d])]).argmax())
             D[W[w,d],d] += 1
       W_.append([(k,D[k,d]) for k in range(n_dic)])
+
 #%%
 
 t1 = time.time()
-aaa = aLDA_estimator(K, W, AMask, alpha, beta)
-aaa.gd_ll(0.01, 30, 0,0.0,0,0)
+aaa = aLDA_estimator(K, W, AMask, alpha, beta,gamma)
+aaa.gd_ll(0.0151, 150, 0,0.0,0,0)
 
 plt.plot(aaa.llgd/aaa.loglik(thetaStar,phiStar,AStar))
 print('elapsed'+str(time.time()-t1))
 
 
 
-print(np.sum(aaa.loglik(thetaStar,phiStar,AStar)),np.sum(aaa.llgd[-1]))#,aaa.loglik(theta_lda,phi_lda))
-print(aaa.AStar[:,1])
+#print(np.sum(aaa.loglik(thetaStar,phiStar,AStar)),np.sum(aaa.llgd[-1]))#,aaa.loglik(theta_lda,phi_lda))
+#print(aaa.AStar[:,1])
 
 #%%
 from gensim.models import AuthorTopicModel
@@ -232,15 +241,18 @@ for d in range(n_d_test):
 #%%
 print('ll + Pa + Pb / Learning set')
 
-print(loglikaLDA(thetaStar, phiStar, AStar, D, alpha, beta))   
-print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, D, alpha, beta))        
-print(loglikaLDA(thetaGen, phiGen, AMask/4, D, alpha, beta))      
+print(loglikaLDA(thetaStar, phiStar, AStar, D, alpha, beta, gamma))   
+print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, D, alpha, beta, gamma))        
+print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), D, alpha, beta, gamma))      
 
-#print(np.sum(loglikaLDA(thetaStar, phiStar, A, D, alpha, beta)),np.sum(loglikaLDA(aaa.thetaStar, aaa.phiStar, A, D, alpha, beta)),np.sum(loglikaLDA(thetaGen, phiGen, A, D, alpha, beta)))
 print('ll + Pa + Pb / test set')
-print(loglikaLDA(thetaStar, phiStar, A_test, D_test, alpha, beta))   
-print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, D_test, alpha, beta))        
-print(loglikaLDA(thetaGen, phiGen, AMask/4, D_test, alpha, beta))      
+print(loglikaLDA(thetaStar, phiStar, A_test, D_test, alpha, beta, gamma))   
+print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, D_test, alpha, beta, gamma))        
+print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), D_test, alpha, beta, gamma))      
 
-#print(np.sum(loglikaLDA(thetaStar, phiStar, A, D, alpha, beta)),np.sum(loglikaLDA(aaa.thetaStar, aaa.phiStar, A, D, alpha, beta)),np.sum(loglikaLDA(thetaGen, phiGen, A, D, alpha, beta)))
+#%%
+
+np.sum(np.abs(AMask/np.sum(AMask,0)-AStar))
+
+
 

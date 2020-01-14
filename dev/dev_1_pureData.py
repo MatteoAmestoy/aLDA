@@ -41,12 +41,14 @@ for index,row in data_df_journals.iterrows():
             doc_ = doc.translate(str.maketrans(unwantedchar,' '*len(unwantedchar)))           
             doc_ = [stemmer.stem(x) for x in doc_.split() if len(x)>5] 
             doc_ = [x.lower() for x in doc_ if x not in stopset] 
-            vocab.update(doc_)
-            corpus.append(doc_)
-            
-            authors.update(aut)
-            authorDoc.append(aut)
-            i +=1
+            if len(aut)>0:
+                  vocab.update(doc_)
+                  corpus.append(doc_)
+                  
+                  authors.update(aut)
+                  authorDoc.append(aut)
+                  i +=1
+
 vocab = list(vocab)
 authors = list(authors)
 
@@ -60,21 +62,48 @@ corpusId = [ vocab2id.transform(x) for x in corpus]
 aut2id = preprocessing.LabelEncoder()
 aut2id.fit(authors)
 
-autId = vocab2id.transform(authors)
-authorDocId = [ vocab2id.transform(x) for x in authorDoc]
+autId = aut2id.transform(authors)
+authorDocId = [ aut2id.transform(x) for x in authorDoc]
 
 #%%
+n_dic = len(vocabId)
+nb_a = len(autId)
 max_len = max([len(x) for x in corpusId])
-D = np.zeros((max_len,d_max)) -1
-AMask = 
+W = np.zeros((max_len,d_max)) -1
+AMask = np.zeros((nb_a,d_max))
+W_ = []
 for d in range(d_max):
-      D[:len(corpusId[d]),d] = corpusId[d]
+      W[:len(corpusId[d]),d] = corpusId[d]
+      AMask[authorDocId[d],d] = 1
+      W_.append([(w,np.sum(W[:,d] == w)) for w in range(n_dic)])
+Adic = {}
+for a in  range(nb_a):
+      Adic[str(a)] = list(np.where(AMask[a,:]>0)[0])
+#%%
+alpha = 1.8
+beta = 1.8
+gamma = 500
+K = 50
+aaa = aLDA_estimator(K, W, AMask, alpha, beta, gamma)
+aaa.gd_ll(0.008, 100, 0,0.0,0,0)
+plt.plot(aaa.llgd/aaa.llgd[0,:])
 
+#%%
 
+from gensim.models import AuthorTopicModel
 
+model = AuthorTopicModel(W_, author2doc=Adic,  num_topics=K)
+#%%
+phiGen = model.get_topics().transpose()
+thetaGen = 0*aaa.thetaStar
+for a in  range(nb_a):
+      thetaGen[:,a] = [b for (c,b) in model.get_author_topics(str(a),0)]
+#%%
+#%%
+print('ll + Pa + Pb / Learning set')
 
-
-
-
+#print(loglikaLDA(thetaStar, phiStar, AStar, D, alpha, beta))   
+print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, aaa.D, alpha, beta))        
+print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), aaa.D, alpha, beta))           
 
   

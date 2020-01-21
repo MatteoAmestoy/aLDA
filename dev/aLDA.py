@@ -26,7 +26,7 @@ class aLDA_estimator():
             Input:
             - K = [int] nb of topics
             - data = [n_w,n_d int] nb words * nb doc matrix of word index
-            - AMask = [n_a,n_d float] nb authors * nb doc matrix of author contribution to each paper
+            - AMask = [n_a,n_d 0-1] nb authors * nb doc matrix of author participation to each paper
                   (1 if author participated to paper)
             - alpha[n_a float] priors on theta
             - beta [n_dic float] priors on  phi
@@ -142,11 +142,92 @@ def loglikaLDA(theta, phi, A, D, alpha, beta, gamma):
       pPhi = np.sum(np.sum(np.log(phi)*(beta-1))) # Dirichlet prior 
       pA = (gamma - 1)*np.sum(np.log(A**(A>0))) # Dirichlet prior constant gamma
       return(M,ptheta,pPhi,pA)
+      
+      
+#%% Data generation 
+      
+class aLDA_generator():
+      def __init__(self, n_dic, n_w, A_mask, K, alpha, beta, gamma):
+            '''
+            Input:
+            - n_d = [int] nb of documents
+            - n_dic = [int] nb of words in the dictionnary
+            - n_w = [int] nb of words in a document
+            - A_mask = [nb_a,n_d int] nb authors * nb doc matrix of author participation to each paper
+                  (1 if author participated to paper)
+            - K = [int] nb of topics
+            - alpha[n_a float] distribution of theta (Dirichlet parameter)
+            - beta [n_dic float] distribution of phi (Dirichlet parameter)
+            - gamma [flaot] prior on A
+            '''
+            self.A_mask = A_mask
+            self.K = K 
+            self.n_dic = n_dic
+            self.n_w = n_w
+            self.n_a,self.n_d =  A_mask.shape
+            if np.size(alpha) == 1:
+                  self.alpha = alpha*np.ones(self.K) # [float] prior theta
+            elif np.size(alpha) == self.K:
+                  self.alpha = alpha
+            else:
+                  print('alpha error size (should be 1 or K)')
+            if np.size(beta) == 1:
+                  self.beta = beta*np.ones(self.n_dic) # [float] prior phi
+            elif np.size(beta) == self.n_dic:
+                  self.beta = beta # [float] prior phi
+            else:
+                  print('alpha error size (should be 1 or N)')           
+            self.gamma = gamma
+
+      def itialise(self):
+            '''
+            Initialises the values of A, theta, phi.
+
+            '''
+            # generate A
+            if self.gamma == -1: # if we want same contribution from each author
+                  self.A = normalize(self.A_mask,'l1',0)
+            else:
+                  self.A = np.zeros((self.n_a,self.n_d)) 
+                  for d in range(self.n_d): # Standard Dirichlet
+                        self.A[self.A_mask[:,d]==1,d] = np.random.dirichlet(np.ones(int(np.sum(self.A_mask[:,d])))*self.gamma)
+                        
+            # generate theta phi
+            self.theta = np.random.dirichlet(self.alpha,(n_a)).transpose()
+            self.phi = np.random.dirichlet(self.beta,(K)).transpose()  
+            self.thetaDoc =self.theta.dot(self.A) # doc topic distribution
+      def generate(self):
+            '''
+            Generate the corpus
+            Output:
+                  - C_ Corpus as a list of documents= list of pairs (word, count) 
+                  - Z [n_w,n_d int] # Mat of topics
+                  - C [n_w,n_d int] # Mat corpus
+                  - D [n_dic,n_d int] # Mat word count
+            '''            
+            #----------- Doc generation
+            C_ = [] # Corpus as a list of documents= list of pairs (word, count) 
+            Z = np.zeros((self.n_w,self.n_d)).astype(int) # Mat of topics
+            C = np.zeros((self.n_w,self.n_d)).astype(int) # Mat corpus
+            D = np.zeros((self.n_dic,self.n_d)).astype(int) # Mat word count
+            for d in range(self.n_d):
+                  # generate number words in doc
+                  n_ = n_w
+                  # generate words
+                  Z[:,d] = np.random.multinomial(1,self.thetaDoc[:,d],n_).argmax(1).astype(int)
+                  for w in range(n_):
+                        # Store topic|
+                        C[w,d] = int(np.random.multinomial(1,self.phi[:,int(Z[w,d])]).argmax())
+                        D[C[w,d],d] += 1
+                  C_.append([(k,D[k,d]) for k in range(self.n_dic)])
+            return(Z,C,D,C_)
+
+        
 #%% Generate data and test
-n_d = 300
-n_dic = 2000
+n_d = 30
+n_dic = 200
 n_w = 20
-n_a = 100
+n_a = 10
 n_a_mean = 1
 K = 60
 
@@ -162,32 +243,16 @@ for d in range(n_d):
       nb_a_ = np.random.choice(n_a_mean*2,p = p/np.sum(p),replace=False )+1
       AStar[np.random.choice(n_a, nb_a_,replace=False),d] = 1/nb_a_#np.random.dirichlet(np.ones(nb_a_)*gamma)#
       Ddic[str(d)] =  [str(a) for a in list(np.where(AStar[:,d]>0)[0])]
-AMask = AStar>0
+A_mask = AStar>0
 Adic = {}
+
 for a in  range(n_a):
       Adic[str(a)] = list(np.where(AStar[a,:]>0)[0])
-      
-thetaStar = np.random.dirichlet(np.ones(K)*alpha,(n_a)).transpose()
-phiStar = np.random.dirichlet(np.ones(n_dic)*beta,(K)).transpose()
-thetaDoc = thetaStar.dot(AStar)
+ddd = aLDA_generator(n_dic, n_w, A_mask, K, 1, 1, 113.3)
 
-#print(np.sum(theta,0),np.sum(varphi,0))
-
-#----------- Doc generation
-W_ = []
-Z = np.zeros((n_w,n_d)).astype(int)
-W = np.zeros((n_w,n_d)).astype(int)
-D = np.zeros((n_dic,n_d)).astype(int)
-for d in range(n_d):
-      # generate number words in doc
-      n_ = n_w
-      # generate words
-      Z[:,d] = np.random.multinomial(1,thetaDoc[:,d],n_).argmax(1).astype(int)
-      for w in range(n_):
-            # Store topic|
-            W[w,d] = int(np.random.multinomial(1,phiStar[:,int(Z[w,d])]).argmax())
-            D[W[w,d],d] += 1
-      W_.append([(k,D[k,d]) for k in range(n_dic)])
+ddd.itialise()
+Z,C,D,C_ = ddd.generate()
+print(Z)    
 
 #%%
 

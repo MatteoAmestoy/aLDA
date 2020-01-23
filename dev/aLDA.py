@@ -244,7 +244,7 @@ aLDA_store_train = np.zeros((nb_fold,nb_k))
 aLDA_store_test = np.zeros((nb_fold,nb_k))
 LDA_store_train = np.zeros((nb_fold,nb_k))
 LDA_store_test = np.zeros((nb_fold,nb_k)) 
-i = 0
+
 aLDAgen = aLDA_generator(n_dic, n_w, A_mask, K, alpha, beta, gamma)
 aLDAgen.itialise()
 for f in range(nb_fold):
@@ -259,7 +259,6 @@ for f in range(nb_fold):
                   tmp = LDA.get_document_topics(train_C_[d])
                   ind = [c for (c,b) in tmp]
                   thetaGen[ind,d] = [b for (c,b) in tmp]
-#            model = AuthorTopicModel(train_C_, author2doc=Adic,  num_topics=K)
             aLDA_store_train[f,k] = aLDA.llgd[-1,0]
             LDA_store_train[f,k] = loglikaLDA(thetaGen, phiGen, A_mask, train_D,  alpha, beta,1)
             aLDA_store_test[f,k] = np.sum(np.sum(np.log(aLDA.phiStar.dot(aLDA.thetaStar).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
@@ -321,14 +320,14 @@ plt.legend(['LDA','aLDA','max'])
 #%% 
 
 n_d = 600
-n_a = 300
+n_a = 400
 
 n_dic = 1000
 n_w = 200
 K = 15
 beta = 3.1
 alpha = 3.5
-gamma = 2
+gamma = -1
 n_a_mean = 3
 
 # Generate an author matrix 
@@ -337,15 +336,17 @@ for d in range(n_d):
       p =list(np.ones(n_a_mean))+list( (1+np.arange(n_a_mean))/(n_a_mean+1))[::-1]
       nb_a_ = np.random.choice(n_a_mean*2,p = p/np.sum(p),replace=False )+1
       A_mask[np.random.choice(n_a, nb_a_,replace=False),d] = 1  
-
+Adic = {}
+for a in  range(n_a):
+      Adic[str(a)] = list(np.where(A_mask[a,:]>0)[0])
 nb_fold = 10
 k_list = [10,15,20,30]
 nb_k = len(k_list)
 aLDA_store_train = np.zeros((nb_fold,nb_k))
 aLDA_store_test = np.zeros((nb_fold,nb_k))
-LDA_store_train = np.zeros((nb_fold,nb_k))
-LDA_store_test = np.zeros((nb_fold,nb_k)) 
-i = 0
+aTM_store_train = np.zeros((nb_fold,nb_k))
+aTM_store_test = np.zeros((nb_fold,nb_k)) 
+
 aLDAgen = aLDA_generator(n_dic, n_w, A_mask, K, alpha, beta, gamma)
 aLDAgen.itialise()
 for f in range(nb_fold):
@@ -353,24 +354,39 @@ for f in range(nb_fold):
       for k in range(nb_k):
             aLDA = aLDA_estimator(k_list[k], train_C, A_mask, alpha, beta,1)
             aLDA.gd_ll(0.05, 60, 0,0.0,0,1)
-            LDA = LdaModel(train_C_, num_topics=k_list[k])
-            phiGen = LDA.get_topics().transpose()
-            thetaGen = 0*aLDA.thetaStar
-            for d in  range(n_d):
-                  tmp = LDA.get_document_topics(train_C_[d])
-                  ind = [c for (c,b) in tmp]
-                  thetaGen[ind,d] = [b for (c,b) in tmp]
-#            model = AuthorTopicModel(train_C_, author2doc=Adic,  num_topics=K)
+            aTM = AuthorTopicModel(train_C_ , author2doc=Adic, num_topics=k_list[k])
+            aTM_phi = aTM.get_topics().transpose()
+            aTM_theta = 0*aLDA.thetaStar
+            for a in  range(n_a):
+                  aTM_theta[:,a] = [b for (c,b) in aTM.get_author_topics(str(a),0)]
             aLDA_store_train[f,k] = aLDA.llgd[-1,0]
-            LDA_store_train[f,k] = loglikaLDA(thetaGen, phiGen, A_mask, train_D,  alpha, beta,1)
+            aTM_store_train[f,k] = loglikaLDA(aTM_theta, aTM_phi, A_mask, train_D,  alpha, beta,1)
             aLDA_store_test[f,k] = np.sum(np.sum(np.log(aLDA.phiStar.dot(aLDA.thetaStar).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
-            LDA_store_test[f,k] = np.sum(np.sum(np.log(phiGen.dot(thetaGen).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
+            aTM_store_test[f,k] = np.sum(np.sum(np.log(aTM_phi.dot(aTM_theta).dot(aLDAgen.A))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
       print(f)
 
 
 
 #%%
-
+max_ll = np.sum(np.sum(np.log(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
+plt.Figure()
+plt.subplot(1,2,1)
+plt.plot(k_list,np.mean(aTM_store_train.T,1))
+plt.plot(k_list,np.mean(aLDA_store_train.T,1))
+plt.plot(k_list,aTM_store_train.T,'*')
+plt.plot(k_list,aLDA_store_train.T,'*')
+plt.title('Training set,ll(theta,phi,A|D), K= '+str(K) )
+plt.xlabel('K')
+plt.subplot(1,2,2)
+plt.plot(k_list,np.mean(aTM_store_test.T,1))
+plt.plot(k_list,np.mean(aLDA_store_test.T,1))
+plt.plot(k_list,np.ones(nb_k)*max_ll)
+plt.plot(k_list,aTM_store_test.T,'*')
+plt.plot(k_list,aLDA_store_test.T,'*')
+plt.title('Generalisation, E(ll(theta,phi,A|D)), K= '+str(K) )
+plt.xlabel('K')
+plt.legend(['aTM','aLDA','max'])
+#%%
 #%% Generate data and test
 n_d = 30
 n_dic = 200
@@ -381,7 +397,7 @@ K = 60
 
 beta = 1.1
 alpha = 1.5
-gamma = 2
+gamma = -1
 # only na = nd |
 #A = np.eye(n_a)
 AStar = np.zeros((n_a,n_d))

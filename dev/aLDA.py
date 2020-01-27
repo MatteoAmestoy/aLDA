@@ -250,7 +250,7 @@ aLDAgen.itialise()
 for f in range(nb_fold):
       train_Z,train_C,train_D,train_C_  = aLDAgen.generate()
       for k in range(nb_k):
-            aLDA = aLDA_estimator(k_list[k], train_C, A_mask, alpha, beta,1)
+            aLDA = aLDA_estimator(k_list[k], train_C, A_mask, 3, 3,1)
             aLDA.gd_ll(0.05, 60, 0,0.0,0,1)
             LDA = LdaModel(train_C_, num_topics=k_list[k])
             phiGen = LDA.get_topics().transpose()
@@ -272,21 +272,21 @@ for f in range(nb_fold):
 
 #%%
 max_ll = np.sum(np.sum(np.log(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
-plt.Figure()
-plt.subplot(1,2,1)
-plt.plot(k_list,np.mean(LDA_store_train.T,1))
-plt.plot(k_list,np.mean(aLDA_store_train.T,1))
-plt.plot(k_list,LDA_store_train.T,'*')
-plt.plot(k_list,aLDA_store_train.T,'*')
-plt.title('Training set,ll(theta,phi|D), K= '+str(K) )
-plt.xlabel('K')
-plt.subplot(1,2,2)
+#plt.Figure()
+#plt.subplot(1,2,1)
+#plt.plot(k_list,np.mean(LDA_store_train.T,1))
+#plt.plot(k_list,np.mean(aLDA_store_train.T,1))
+#plt.plot(k_list,LDA_store_train.T,'*')
+#plt.plot(k_list,aLDA_store_train.T,'*')
+#plt.title('Training set,log(p(D|theta,phi)), K= '+str(K) )
+#plt.xlabel('K')
+#plt.subplot(1,2,2)
 plt.plot(k_list,np.mean(LDA_store_test.T,1))
 plt.plot(k_list,np.mean(aLDA_store_test.T,1))
 plt.plot(k_list,np.ones(nb_k)*max_ll)
 plt.plot(k_list,LDA_store_test.T,'*')
 plt.plot(k_list,aLDA_store_test.T,'*')
-plt.title('Generalisation, E(ll(theta,phi|D)), K= '+str(K) )
+plt.title('Perplexity, K= '+str(K) )
 plt.xlabel('K')
 plt.legend(['LDA','aLDA','max'])
 
@@ -370,118 +370,19 @@ for f in range(nb_fold):
 #%%
 max_ll = np.sum(np.sum(np.log(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w
 plt.Figure()
-plt.subplot(1,2,1)
-plt.plot(k_list,np.mean(aTM_store_train.T,1))
-plt.plot(k_list,np.mean(aLDA_store_train.T,1))
-plt.plot(k_list,aTM_store_train.T,'*')
-plt.plot(k_list,aLDA_store_train.T,'*')
-plt.title('Training set,ll(theta,phi,A|D), K= '+str(K) )
-plt.xlabel('K')
-plt.subplot(1,2,2)
+#plt.subplot(1,2,1)
+#plt.plot(k_list,np.mean(aTM_store_train.T,1))
+#plt.plot(k_list,np.mean(aLDA_store_train.T,1))
+#plt.plot(k_list,aTM_store_train.T,'*')
+#plt.plot(k_list,aLDA_store_train.T,'*')
+#plt.title('Training set,log(p(D|theta,phi,A)), K= '+str(K) )
+#plt.xlabel('K')
+#plt.subplot(1,2,2)
 plt.plot(k_list,np.mean(aTM_store_test.T,1))
 plt.plot(k_list,np.mean(aLDA_store_test.T,1))
 plt.plot(k_list,np.ones(nb_k)*max_ll)
 plt.plot(k_list,aTM_store_test.T,'*')
 plt.plot(k_list,aLDA_store_test.T,'*')
-plt.title('Generalisation, E(ll(theta,phi,A|D)), K= '+str(K) )
+plt.title('Perplexity, K= '+str(K) )
 plt.xlabel('K')
 plt.legend(['aTM','aLDA','max'])
-#%%
-#%% Generate data and test
-n_d = 30
-n_dic = 200
-n_w = 20
-n_a = 100
-n_a_mean = 1
-K = 60
-
-beta = 1.1
-alpha = 1.5
-gamma = -1
-# only na = nd |
-#A = np.eye(n_a)
-AStar = np.zeros((n_a,n_d))
-Ddic = {}
-for d in range(n_d):
-      p =list(np.ones(n_a_mean))+list( (1+np.arange(n_a_mean))/(n_a_mean+1))[::-1]
-      nb_a_ = np.random.choice(n_a_mean*2,p = p/np.sum(p),replace=False )+1
-      AStar[np.random.choice(n_a, nb_a_,replace=False),d] = 1/nb_a_#np.random.dirichlet(np.ones(nb_a_)*gamma)#
-      Ddic[str(d)] =  [str(a) for a in list(np.where(AStar[:,d]>0)[0])]
-A_mask = AStar>0
-Adic = {}
-
-for a in  range(n_a):
-      Adic[str(a)] = list(np.where(AStar[a,:]>0)[0])
-ddd = aLDA_generator(n_dic, n_w, A_mask, K, 1, 1, 113.3)
-
-ddd.itialise()
-Z,C,D,C_ = ddd.generate()
-print(Z) 
-
-#%%
-
-t1 = time.time()
-aaa = aLDA_estimator(K, W, AMask, alpha, beta,gamma)
-aaa.gd_ll(0.0151, 150, 0,0.0,0,0)
-
-plt.plot(aaa.llgd/aaa.loglik(thetaStar,phiStar,AStar))
-print('elapsed'+str(time.time()-t1))
-
-
-
-#print(np.sum(aaa.loglik(thetaStar,phiStar,AStar)),np.sum(aaa.llgd[-1]))#,aaa.loglik(theta_lda,phi_lda))
-#print(aaa.AStar[:,1])
-
-#%%
-from gensim.models import AuthorTopicModel
-t1 = time.time()
-model = AuthorTopicModel(W_, author2doc=Adic,  num_topics=K)
-print('elapsed'+str(time.time()-t1))
-
-#%%
-phiGen = model.get_topics().transpose()
-thetaGen = 0*thetaStar
-for a in  range(n_a):
-      thetaGen[:,a] = [b for (c,b) in model.get_author_topics(str(a),0)]
-
-#%%
-n_d_test = n_d
-A_test = AStar
-#A_test = np.zeros((n_a,n_d_test))
-#for d in range(n_d_test):
-#      A_test[np.random.choice(n_a, 4),d] = 1/4
-thetaDoc_test = thetaStar.dot(A_test)
-#thetaDoc_test = thetaDoc
-W_test_ = []
-Z_test = np.zeros((n_w,n_d_test)).astype(int)
-W_test = np.zeros((n_w,n_d_test)).astype(int)
-D_test = np.zeros((n_dic,n_d_test)).astype(int)
-for d in range(n_d_test):
-      # generate number words in doc
-      n_ = n_w
-      # generate words
-      Z_test[:,d] = np.random.multinomial(1,thetaDoc_test[:,d],n_).argmax(1).astype(int)
-      for w in range(n_):
-            # Store topic|
-            W_test[w,d] = int(np.random.multinomial(1,phiStar[:,int(Z_test[w,d])]).argmax())
-            D_test[W_test[w,d],d] += 1
-
-
-#%%
-print('ll + Pa + Pb / Learning set')
-
-print(loglikaLDA(thetaStar, phiStar, AStar, D, alpha, beta, gamma))   
-print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, D, alpha, beta, gamma))        
-print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), D, alpha, beta, gamma))      
-
-print('ll + Pa + Pb / test set')
-print(loglikaLDA(thetaStar, phiStar, A_test, D_test, alpha, beta, gamma))   
-print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, D_test, alpha, beta, gamma))        
-print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), D_test, alpha, beta, gamma))      
-
-#%%
-
-np.sum(np.abs(AMask/np.sum(AMask,0)-AStar))
-
-
-

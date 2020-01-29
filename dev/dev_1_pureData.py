@@ -22,7 +22,7 @@ n_authors = len(data_df_authors['unitList'])
 
 #%%
 
-d_max = 500
+d_max = 800
 
 stopset = stopwords.words('english') 
 unwantedchar = string.punctuation + string.digits
@@ -68,42 +68,51 @@ authorDocId = [ aut2id.transform(x) for x in authorDoc]
 #%%
 n_dic = len(vocabId)
 nb_a = len(autId)
-max_len = max([len(x) for x in corpusId])
-W = np.zeros((max_len,d_max)) -1
+max_N = max([len(x) for x in corpusId])
+WTrain = np.zeros((max_N,d_max)) -1
+WTest = np.zeros((max_N,d_max)) -1
 AMask = np.zeros((nb_a,d_max))
-W_ = []
+W_train = []
+W_test = []
 for d in range(d_max):
-      W[:len(corpusId[d]),d] = corpusId[d]
+      nbTrain = int(3*len(corpusId[d])/4)
+      l_ = np.arange(len(corpusId[d]))
+      np.random.shuffle(l_)
+      WTrain[:nbTrain,d] = corpusId[d][l_[:nbTrain]]
+      WTest[:(len(corpusId[d])-nbTrain),d] = corpusId[d][l_[nbTrain:]]
       AMask[authorDocId[d],d] = 1
-      W_.append([(w,np.sum(W[:,d] == w)) for w in range(n_dic)])
+      W_train.append([(w,np.sum(WTrain[:,d] == w)) for w in range(n_dic)])
+      W_test.append([(w,np.sum(WTest[:,d] == w)) for w in range(n_dic)])
 Adic = {}
 for a in  range(nb_a):
       Adic[str(a)] = list(np.where(AMask[a,:]>0)[0])
 #%%
 alpha = 1.8
 beta = 1.8
-gamma = 500
-K = 50
-aaa = aLDA_estimator(K, W, AMask, alpha, beta, gamma)
-aaa.gd_ll(0.008, 100, 0,0.0,0,0)
-plt.plot(aaa.llgd/aaa.llgd[0,:])
+gamma = -1
+K = 20
+aLDA_train = aLDA_estimator(K, WTrain, AMask, alpha, beta, gamma)
+aLDA_train.gd_ll(0.008, 100, 0,0.0,0,0)
+plt.plot(aLDA_train.llgd/aLDA_train.llgd[0,:])
 
 #%%
 
 from gensim.models import AuthorTopicModel
 
-model = AuthorTopicModel(W_, author2doc=Adic,  num_topics=K)
+model = AuthorTopicModel(W_train, author2doc=Adic,  num_topics=K)
 #%%
 phiGen = model.get_topics().transpose()
-thetaGen = 0*aaa.thetaStar
+thetaGen = 0*aLDA_train.thetaStar
 for a in  range(nb_a):
       thetaGen[:,a] = [b for (c,b) in model.get_author_topics(str(a),0)]
 #%%
+      
+aLDA_test = aLDA_estimator(K, WTest, AMask, alpha, beta, gamma) 
 #%%
 print('ll + Pa + Pb / Learning set')
 
 #print(loglikaLDA(thetaStar, phiStar, AStar, D, alpha, beta))   
-print(loglikaLDA(aaa.thetaStar, aaa.phiStar, aaa.AStar, aaa.D, alpha, beta))        
-print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), aaa.D, alpha, beta))           
+print(loglikaLDA(aLDA_train.thetaStar, aLDA_train.phiStar, aLDA_train.AStar, aLDA_test.D, alpha, beta,0))        
+print(loglikaLDA(thetaGen, phiGen, AMask/np.sum(AMask,0), aLDA_test.D, alpha, beta,0))           
 
   

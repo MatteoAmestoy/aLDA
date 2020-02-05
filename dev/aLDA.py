@@ -12,7 +12,7 @@ multiple papers.
 Optimal parameters found by gradient descent. 
 Formulae can be found in ???
 """
-
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
@@ -99,7 +99,7 @@ class aLDA_generator():
 #%%
 
 class aLDA_estimator():
-      def __init__(self, K, data, AMask, alpha, beta, gamma,data_count):
+      def __init__(self, K, data, AMask, alpha, beta, gamma,data_count, init_mat = {}):
             '''
             Input:
             - K = [int] nb of topics
@@ -137,8 +137,7 @@ class aLDA_estimator():
             else:
                   print('alpha error size (should be 1 or N)')           
             self.gamma = gamma
-            
-
+            self.init_mat = init_mat
             
                         
       def loglik(self, theta, phi, A):
@@ -154,6 +153,24 @@ class aLDA_estimator():
             pPhi = np.sum((self.beta - 1).dot(np.log(phi))) # Dirichlet prior 
             pA = 1#(self.gamma - 1)*np.sum(np.log(A**self.AMask)) # Dirichlet prior constant gamma
             return(M,pTheta,pPhi,pA)
+      def init_gd(self):
+            '''
+            Initialisation of the gradient descent
+            '''
+            dic_keys = self.init_mat.keys()
+            if 'theta' in dic_keys:
+                  X = np.log(self.init_mat['theta']+sys.float_info.epsilon)
+            else:
+                  X = np.random.normal(0,1,(self.K,self.n_a))  
+            if 'phi' in dic_keys:
+                  Y = np.log(self.init_mat['phi']+sys.float_info.epsilon)
+            else:
+                  Y = np.random.normal(0,1,(self.n_dic,self.K))
+            if 'A' in dic_keys:
+                  Z = np.log(self.init_mat['A']+sys.float_info.epsilon)
+            else:
+                  Z = np.random.normal(0,1,(self.AMask.shape))
+            return(X,Y,Z)
             
       def gd_ll(self, step, n_itMax, tolerance, b_mom , X0, Y0):
             '''
@@ -168,9 +185,10 @@ class aLDA_estimator():
             self.llgd = np.zeros((n_itMax,4))
             
             # initialize ------------------------------------------------------
-            X = np.random.normal(0,1,(self.K,self.n_a))
-            Y = np.random.normal(0,1,(self.n_dic,self.K))
-            Z = np.random.normal(0,1,(self.AMask.shape))#np.ones((self.AMask.shape))#
+#            X = np.random.normal(0,1,(self.K,self.n_a))
+#            Y = np.random.normal(0,1,(self.n_dic,self.K))
+#            Z = np.random.normal(0,1,(self.AMask.shape))#np.ones((self.AMask.shape))#
+            X,Y,Z = self.init_gd()
             
             theta = normalize(np.exp(X),'l1',0)
             phi = normalize(np.exp(Y),'l1',0)

@@ -99,11 +99,13 @@ class aLDA_generator():
 #%%
 
 class aLDA_estimator():
-      def __init__(self, K, data, AMask, alpha, beta, gamma):
+      def __init__(self, K, data, AMask, alpha, beta, gamma,data_count):
             '''
             Input:
             - K = [int] nb of topics
-            - data = [n_w,n_d int] nb words * nb doc matrix of word index
+            - data_count = [bool] indicates if data is a count matrix or raw data
+                  - False -> data = [n_w,n_d int] nb words * nb doc matrix of word index
+                  -True -> data = [n_dic,n_d int] size od dictionary * nb doc matrix of word count
             - AMask = [n_a,n_d 0-1] nb authors * nb doc matrix of author participation to each paper
                   (1 if author participated to paper)
             - alpha[n_a float] priors on theta
@@ -112,9 +114,16 @@ class aLDA_estimator():
             '''
             self.K = K # [int] nb of topics
             self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
-            self.n_a,self.n_d = self.AMask.shape # [int] nb authors 
-            self.M = data # [n_w,n_d int] matrix of word index
-            self.n_dic = int(data.max())+1 # [int] nb words in dictionary
+            self.n_a,self.n_d = self.AMask.shape # [int] nb authors
+            if data_count:
+                  self.D = data
+                  self.n_dic,self.n_d = self.D.shape
+            else:
+                  self.M = data # [n_w,n_d int] matrix of word index
+                  self.n_dic = int(data.max())+1 # [int] nb words in dictionary
+                  self.D = np.zeros((self.n_dic,self.n_d)) # [n_dic,n_d int] matrix of count for each word 
+                  for w in range(self.n_dic):
+                        self.D[w,:] = np.sum(self.M==w,0) 
             if np.size(alpha) == 1:
                   self.alpha = alpha*np.ones(self.K) # [float] prior theta
             elif np.size(alpha) == self.K:
@@ -129,9 +138,7 @@ class aLDA_estimator():
                   print('alpha error size (should be 1 or N)')           
             self.gamma = gamma
             
-            self.D = np.zeros((self.n_dic,self.n_d)) # [n_dic,n_d int] matrix of count for each word 
-            for w in range(self.n_dic):
-                  self.D[w,:] = np.sum(self.M==w,0) 
+
             
                         
       def loglik(self, theta, phi, A):
@@ -163,7 +170,7 @@ class aLDA_estimator():
             # initialize ------------------------------------------------------
             X = np.random.normal(0,1,(self.K,self.n_a))
             Y = np.random.normal(0,1,(self.n_dic,self.K))
-            Z = np.random.normal(0,1,(self.AMask.shape))#np.ones((self.AMask.shape))#Î
+            Z = np.random.normal(0,1,(self.AMask.shape))#np.ones((self.AMask.shape))#
             
             theta = normalize(np.exp(X),'l1',0)
             phi = normalize(np.exp(Y),'l1',0)
@@ -250,12 +257,12 @@ aLDAgen.itialise()
 for f in range(nb_fold):
       train_Z,train_C,train_D,train_C_  = aLDAgen.generate()
       for k in range(nb_k):
-            aLDA = aLDA_estimator(k_list[k], train_C, A_mask, 3, 3,1)
+            aLDA = aLDA_estimator(k_list[k], train_C, A_mask, 3, 3, 1, False)
             aLDA.gd_ll(0.05, 60, 0,0.0,0,1)
             LDA = LdaModel(train_C_, num_topics=k_list[k])
             phiGen = LDA.get_topics().transpose()
             thetaGen = 0*aLDA.thetaStar
-            for d in  range(n_d):
+            for d in  range(n_a):
                   tmp = LDA.get_document_topics(train_C_[d])
                   ind = [c for (c,b) in tmp]
                   thetaGen[ind,d] = [b for (c,b) in tmp]
@@ -293,7 +300,7 @@ plt.legend(['LDA','aLDA','max'])
 
 ##%% Test the convergence parameters for aLDA
 #k=10
-#aLDA = aLDA_estimator(k, train_C, A_mask, alpha, beta,1)
+#aLDA = aLDA_estimator(k, train_C, A_mask, alpha, beta,1,False)
 #aLDA.gd_ll(0.0098, 60, 0,0.0,0,100)
 #
 #print(np.sum(np.sum(np.log(aLDA.phiStar.dot(aLDA.thetaStar).dot(aLDA.AStar))*(aLDAgen.phi.dot(aLDAgen.theta).dot(aLDAgen.A))))*n_w)
@@ -352,7 +359,7 @@ aLDAgen.itialise()
 for f in range(nb_fold):
       train_Z,train_C,train_D,train_C_  = aLDAgen.generate()
       for k in range(nb_k):
-            aLDA = aLDA_estimator(k_list[k], train_C, A_mask, alpha, beta,1)
+            aLDA = aLDA_estimator(k_list[k], train_C, A_mask, alpha, beta,1,False)
             aLDA.gd_ll(0.05, 60, 0,0.0,0,1)
             aTM = AuthorTopicModel(train_C_ , author2doc=Adic, num_topics=k_list[k])
             aTM_phi = aTM.get_topics().transpose()

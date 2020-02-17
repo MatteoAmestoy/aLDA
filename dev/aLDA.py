@@ -172,7 +172,7 @@ class aLDA_estimator():
                   Z = np.random.normal(0,1,(self.AMask.shape))
             return(X,Y,Z)
             
-      def gd_ll(self, step, n_itMax, tolerance, b_mom , X0, Y0):
+      def gd_ll(self, step, n_itMax, tolerance, b_mom , X_priorStep, Y_priorStep, Z_step):
             '''
             Gradient Descent optimisation of the aLDA loglikelihood
             TO BE DONE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -206,12 +206,12 @@ class aLDA_estimator():
                   Dg = self.D/(phi.dot(theta.dot(A)))
                   
                   # Compute gradient and update
-                  dX = theta*(phi.T.dot(Dg.dot(A.T))-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+Y0*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
+                  dX = theta*(phi.T.dot(Dg.dot(A.T))-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+X_priorStep*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
                   VX = b_mom*VX + (1-b_mom)*dX
                   X = X + step*VX
                   theta = normalize(np.exp(X),'l1',0)
                   
-                  dY = phi*(Dg.dot(A.T.dot(theta.T))-np.diag(phi.T.dot(Dg.dot(A.T.dot(theta.T)))))+Y0*(self.beta[:, None]-1-phi*np.sum(self.beta-1))
+                  dY = phi*(Dg.dot(A.T.dot(theta.T))-np.diag(phi.T.dot(Dg.dot(A.T.dot(theta.T)))))+Y_priorStep*(self.beta[:, None]-1-phi*np.sum(self.beta-1))
                   VY = b_mom*VY + (1-b_mom)*dY
                   Y = Y + step*VY
                   phi = normalize(np.exp(Y),'l1',0)
@@ -219,7 +219,7 @@ class aLDA_estimator():
                   
                   dZ = A*(theta.T.dot(phi.T.dot(Dg)-np.diag(Dg.T.dot(phi.dot(theta.dot(A))))))
                   VZ = b_mom*VZ + (1-b_mom)*dZ+1*((self.gamma-1)*(1-A*np.sum(self.AMask,0)))
-                  Z = Z + step*VZ    
+                  Z = Z + Z_step*VZ    
                   A = normalize(self.AMask*np.exp(Z),'l1',0) 
                   
                   # Store ll

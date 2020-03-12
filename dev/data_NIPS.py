@@ -12,12 +12,18 @@ from sklearn.preprocessing import normalize
 from gensim.models import AuthorTopicModel,LdaModel
 import time
 #%%
-x = loadmat(r'C:\Users\admin\Documents\Data_NIPS\nips_1-17.mat')
+UM =  True
+if UM:
+    p = r'C:\Users\matteo.amestoy\Documents\DataSets\Nips_1-17\nips_1-17.mat'
+else:
+    p = r'C:\Users\admin\Documents\Data_NIPS\nips_1-17.mat'
+        
+x = loadmat(p)
 #%%
 
 M = x['counts']
 A = x['docs_authors']
-
+Words = x['words']
 At = np.asarray(A.todense().T)
 M_full = np.asarray(M.todense())
 empty_idx = np.where(np.sum(M_full,0)==0)
@@ -42,7 +48,7 @@ for d in range(n_doc):
       train_C_.append([(k,M_train[k,d]) for k in range(n_dic)])
 
 #%%
-l_k = [10,50,100,150]
+l_k = [20]#[20,50,100,150]
 n_k = len(l_k)      
 store = np.zeros((n_k,5))
       
@@ -134,3 +140,22 @@ print(loglikaLDA(aLDATaTM.thetaStar, aLDATaTM.phiStar, aLDATaTM.AStar, M_test,  
 plt.plot(l_k,store)
 plt.legend(['LDA', 'gd LDA', 'aTM', 'gd aTM', 'aLDA' ])
 plt.title('Perplexity evaluated on 20% dropout')
+
+#%% Analyse topics
+aLdaTop = []
+for k in range(20):
+    test = phiLDA[:,k]
+    sor = np.argsort(test)[-10:]
+    aLdaTop.append([(Words[:,s][0][0][:],test[s]) for s in sor ])
+    x = [Words[:,s][0][0][:] for s in sor ]
+    y = [test[s] for s in sor ]
+    plt.subplot(5,4,k+1)
+    plt.plot(x,y)
+    plt.xticks(rotation=45)
+#%%
+ 
+bbb = Words[:,1][0][0][:]
+
+
+
+

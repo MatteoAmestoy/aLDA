@@ -50,22 +50,23 @@ class model_comparison():
         return()
     
     def topic_uniqueness(self, model, L):
-        
+        '''
+        Topic uniqueness cost function, that penalises topics that have top words not specific
+        Input:
+        - model = model class (fields used K number of topics, phi topic to word matrix)
+        - L = number of top words that define a topic
+        '''
         top_words  = np.zeros((self.n_w,model.K))
-        for k in range(model.k):
-            top_words[np.argsort(model.phi)[-L:],k] = 1
-        count = np.sum(top_words,0)
+        top_words[np.argsort(model.phi,0)[-L:,:],:] = 1
+        count = np.sum(top_words,1)
+        count[count == 0] = 1 # if count = 0 then all the words is never a top word and 0/1=0 
         return(np.sum(top_words/count)/model.K/L)
         
     
+
+  
     
-    
-    
-    
-    
-    
-    
-    
+
     
     
     

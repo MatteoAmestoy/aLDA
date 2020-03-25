@@ -13,6 +13,7 @@ Adapt all the topic extraction models to fit the model_comparison script
 import numpy as np
 import sys
 from sklearn.preprocessing import normalize
+from gensim.models import AuthorTopicModel,LdaModel
 
 #%%
 
@@ -144,5 +145,69 @@ class aLDA_gd():
     def train(self, p):
         self.gd_ll(p.step, p.n_itMax, p.b_mom , p.X_priorStep, p.Y_priorStep, p.Z_step)    
         return()
+
+#%% LDA
+
+
+
+class LDA():
+    def __init__(self, K, data, AMask, params, name):
+        self.K = K # [int] nb of topics
+        self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
+        self.n_a,self.n_d = self.AMask.shape # [int] nb authors
+        self.D = data
+        self.n_dic,self.n_d = self.D.shape    
+        self.name = name
+        self.train_C_ = []
+        for d in range(self.n_d):
+              self.train_C_.append([(k,self.D[self.K,d]) for k in range(self.n_dic)])
+        self.LDA = LdaModel(self.train_C_, num_topics=self.K)
+
+
+    def train(self, p):       
+        self.phi = self.LDA.get_topics().transpose()
+        self.theta = np.zeros((self.K,self.n_d))
+        for d in  range(self.n_d):
+            tmp = self.LDA.get_document_topics(self.train_C_[d])
+            ind = [c for (c,b) in tmp]
+            self.theta[ind,d] = [b for (c,b) in tmp]
+        self.D_reb = self.phi.dot(self.theta)          
+        return()
+    
+#%% aTM
+
+class aTM():
+    def __init__(self, K, data, AMask, params, name):
+        self.K = K # [int] nb of topics
+        self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
+        self.n_a,self.n_d = self.AMask.shape # [int] nb authors
+        self.D = data
+        self.n_dic,self.n_d = self.D.shape    
+        self.name = name
+        
+        self.train_C_ = []
+        for d in range(self.n_d):
+              self.train_C_.append([(k,self.D[self.K,d]) for k in range(self.n_dic)])
+        
+        Adic = {}
+        for a in  range(self.n_a):
+            Adic[str(a)] = list(np.where(self.AMask[a,:]>0)[0])
+            
+        self.aTM = AuthorTopicModel(self.train_C_ , author2doc=Adic, num_topics=self.K)
+        
+
+
+    def train(self, p):     
+        
+        self.phi = aTM.get_topics().transpose()
+        self.theta = np.zeros((self.K,self.n_a))
+        for a in  range(self.n_a):
+            self.theta[:,a] = [b for (c,b) in self.aTM.get_author_topics(str(a),0)]
+        
+        self.D_reb = self.phi.dot(self.theta).dot(normalize(self.AMask,'l1',0))    
+
+
+
+
 
 

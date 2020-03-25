@@ -2,7 +2,12 @@
 """
 Created on Mon Mar 23 11:22:35 2020
 
-@author: Matteo
+==========================================================================
+Topic Modeling Comparison
+==========================================================================
+
+@author: Matteo Amestoy
+Framework to compare multiple model in a unified environment
 """
 
 import numpy as np

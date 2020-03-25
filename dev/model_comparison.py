@@ -42,8 +42,13 @@ class model_comparison():
         return()
     
     def perplexity(self,model):
-        
-        return()
+        '''
+        Perplexity(log-likelihood)
+        Input:
+        - model = model class (fields used D_reb, estimated word probability matrix) 
+        '''
+        ll = np.sum(np.sum(np.log(model.D_reb)*self.D))
+        return(ll)
     
     def coherence(self, model):
         

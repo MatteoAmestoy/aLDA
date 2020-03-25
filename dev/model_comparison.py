@@ -36,7 +36,7 @@ class model_comparison():
         for m in self.models:
             t0 = time.time()
             print('--- Started training for '+m.name)
-            m.train(self.D, self.A, m.param)
+            m.train(m.train_param)
             print('finished after '+ str(time.time()-t0)+'seconds')
             print('----------------------------------------')
         return() 

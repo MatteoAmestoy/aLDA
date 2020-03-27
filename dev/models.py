@@ -39,21 +39,21 @@ class aLDA_gd():
         self.n_dic,self.n_d = self.D.shape    
         self.name = name
 
-        if np.size(params.alpha) == 1:
-              self.alpha = params.alpha*np.ones(self.K) # [float] prior theta
-        elif np.size(params.alpha) == self.K:
-              self.alpha = params.alpha
+        if np.size(params['alpha']) == 1:
+              self.alpha = params['alpha']*np.ones(self.K) # [float] prior theta
+        elif np.size(params['alpha']) == self.K:
+              self.alpha = params['alpha']
         else:
               print('alpha error size (should be 1 or K)')
-        if np.size(params.beta) == 1:
-              self.beta = params.beta*np.ones(self.n_dic) # [float] prior phi
-        elif np.size(params.beta) == self.n_dic:
-              self.beta = params.beta # [float] prior phi
+        if np.size(params['beta']) == 1:
+              self.beta = params['beta']*np.ones(self.n_dic) # [float] prior phi
+        elif np.size(params['beta']) == self.n_dic:
+              self.beta = params['beta']# [float] prior phi
         else:
               print('alpha error size (should be 1 or N)')           
-        self.gamma = params.gamma
-        self.init_mat = params.init_mat
-        self.train_param = params.train_param
+        self.gamma = params['gamma']
+        self.init_mat = params['init_mat']
+        self.train_param = params['train_param']
         
         
     def loglik(self, theta, phi, A):
@@ -142,8 +142,8 @@ class aLDA_gd():
         self.phi = phi
         self.A = A
         self.D_reb = phi.dot(theta).dot(A)
-    def train(self, p):
-        self.gd_ll(p.step, p.n_itMax, p.b_mom , p.X_priorStep, p.Y_priorStep, p.Z_step)    
+    def train(self):
+        self.gd_ll(self.train_param['step'], self.train_param['n_itMax'], self.train_param['b_mom'] , self.train_param['X_priorStep'], self.train_param['Y_priorStep'], self.train_param['Z_step'])    
         return()
 
 #%% LDA
@@ -159,12 +159,14 @@ class LDA():
         self.n_dic,self.n_d = self.D.shape    
         self.name = name
         self.train_C_ = []
+        self.train_param = params['train_param']
         for d in range(self.n_d):
-              self.train_C_.append([(k,self.D[self.K,d]) for k in range(self.n_dic)])
+              self.train_C_.append([(k,self.D[k,d]) for k in range(self.n_dic)])
+        
+
+
+    def train(self):    
         self.LDA = LdaModel(self.train_C_, num_topics=self.K)
-
-
-    def train(self, p):       
         self.phi = self.LDA.get_topics().transpose()
         self.theta = np.zeros((self.K,self.n_d))
         for d in  range(self.n_d):
@@ -184,22 +186,22 @@ class aTM():
         self.D = data
         self.n_dic,self.n_d = self.D.shape    
         self.name = name
+        self.train_param = params['train_param']
         
         self.train_C_ = []
         for d in range(self.n_d):
-              self.train_C_.append([(k,self.D[self.K,d]) for k in range(self.n_dic)])
+              self.train_C_.append([(k,self.D[k,d]) for k in range(self.n_dic)])
         
-        Adic = {}
+        self.Adic = {}
         for a in  range(self.n_a):
-            Adic[str(a)] = list(np.where(self.AMask[a,:]>0)[0])
+            self.Adic[str(a)] = list(np.where(self.AMask[a,:]>0)[0])
             
-        self.aTM = AuthorTopicModel(self.train_C_ , author2doc=Adic, num_topics=self.K)
         
 
 
-    def train(self, p):     
-        
-        self.phi = aTM.get_topics().transpose()
+    def train(self):     
+        self.aTM = AuthorTopicModel(self.train_C_ , author2doc=self.Adic, num_topics=self.K)
+        self.phi = self.aTM.get_topics().transpose()
         self.theta = np.zeros((self.K,self.n_a))
         for a in  range(self.n_a):
             self.theta[:,a] = [b for (c,b) in self.aTM.get_author_topics(str(a),0)]

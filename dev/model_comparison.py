@@ -82,7 +82,7 @@ class model_comparison():
         return(np.sum(top_words.T/count)/model.K/L)
         
     
-#%%
+#%% Nips Data
 
 UM =  False
 if UM:
@@ -91,13 +91,13 @@ else:
     p = r'C:\Users\Matteo\Documents\Git\aLDA\data\nips_1-17.mat'
         
 x = loadmat(p)
-#%%
 
 M = x['counts']
 A = x['docs_authors']
 Words = x['words']
 At = np.asarray(A.todense().T)
 M_full = np.asarray(M.todense())
+
 #M_full = M_full[:3000,:]
 empty_idx = np.where(np.sum(M_full,0)==0)
 M_full = np.delete(M_full,empty_idx,1)
@@ -105,8 +105,14 @@ At = np.delete(At,empty_idx,1)
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
+#%% Wiki Data
 
 
+M_full = np.asarray(X.todense()).T
+At = np.eye(M_full.shape[1])
+n_dic,n_doc = M_full.shape
+n_a = At.shape[0]
+K = 50
 #%%
 
 params ={}
@@ -125,8 +131,8 @@ params['init_mat'] = {}
 params['init_mat']['A'] = normalize(At,'l1',0)
 params['init_mat']['theta'] = aTMm.theta
 params['init_mat']['phi'] = aTMm.phi
-params['train_param']['step']=0.001
-params['train_param']['n_itMax']= 40
+params['train_param']['step']=0.0001
+params['train_param']['n_itMax']= 20
 params['train_param']['b_mom']=0.001
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
@@ -140,11 +146,11 @@ params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
 params['init_mat'] = {}
-params['init_mat']['A'] = np.eye(n_doc)
+params['init_mat']['A'] = At#np.eye(n_doc)
 params['init_mat']['theta'] = LDAm.theta
 params['init_mat']['phi'] = LDAm.phi
-params['train_param']['step']=0.001
-params['train_param']['n_itMax']= 40
+params['train_param']['step']=0.0001
+params['train_param']['n_itMax']= 20
 params['train_param']['b_mom']=0.001
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
@@ -152,9 +158,9 @@ params['train_param']['Y_priorStep']=0
 aLDAm = aLDA_gd(K, M_full, np.eye(n_doc), params, 'aLDA_gd_baseline')
 aLDAm.train()
  #%%
-
+Words = {}
 m = model_comparison(M_full, At, Words, models = [LDAm,aLDAm,aTMm,aLDATMm])   
-m.compute_scores(5)
+m.compute_scores(10)
 
-#%%
+ #%%
     

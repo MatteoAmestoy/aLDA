@@ -15,6 +15,7 @@ import sys
 from sklearn.preprocessing import normalize
 from gensim.models import AuthorTopicModel,LdaModel
 
+
 #%%
 
 class aLDA_gd():

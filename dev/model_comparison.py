@@ -13,22 +13,25 @@ Framework to compare multiple model in a unified environment
 import numpy as np
 import time
 from scipy.io import loadmat
+from gensim.models.coherencemodel import CoherenceModel
 #%%
 
 class model_comparison():
-    def __init__(self, word_count, author_part, word_map, models = []):
+    def __init__(self, word_count, author_part, dct, models = [],testText =[]):
         '''
         Input:
         - word_count = [n_w,n_d int] matrix of the count of words for each document
         - author_part = [n_a,n_d bool] 1 if author i participated to doc j
-        - word_map = dic{int} maping of integers to words
+        - dct = dic{int} maping of integers to words
+        - testText = list of list of words to test the coherence
         '''
         self.D = word_count
         self.A = author_part 
-        self.dic = word_map
+        self.dct = dct
         self.n_w = self.D.shape[0]
         self.n_a,self.n_d =  self.A.shape
         self.models = models
+        self.testText = testText
 
     def train_models(self):
         '''
@@ -51,6 +54,8 @@ class model_comparison():
             print(self.perplexity(m))
             print('- Topic Uniqueness (l='+str(l)+'):')
             print(self.topic_uniqueness(m,l))
+            print('- Coherence NPMI (l='+str(l)+'):')
+            print(self.coherence(m,l))
             print('finished after '+ str(time.time()-t0)+'seconds')
             print('----------------------------------------')
         return()
@@ -64,9 +69,17 @@ class model_comparison():
         ll = np.sum(np.sum(np.log(model.D_reb)*self.D))
         return(ll)
     
-    def coherence(self, model):
-        
-        return()
+    def coherence(self, model,L):
+        test = np.argsort(model.phi,0)[-L:,:]
+        topic = []
+        for k in range(K):
+            tmp = []
+            for l in range(L):
+                tmp += [self.dct[test[l,k]]]
+            topic += [tmp]
+        aaa = CoherenceModel( topics=topic, texts=self.testText, corpus=None, dictionary=dct, window_size=None, keyed_vectors=None, coherence='c_v', topn=20, processes=-1)    
+
+        return(aaa.get_coherence())
     
     def topic_uniqueness(self, model, L):
         '''
@@ -108,22 +121,23 @@ K = 50
 #%% Wiki Data
 
 
-M_full = np.asarray(X.todense()).T
+M_full = X
 At = np.eye(M_full.shape[1])
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
-#%%
+
+
+#%% Train data
 
 params ={}
 params['train_param'] = {}
 aTMm = aTM(K, M_full, At, params, 'aTM_baseline')
 aTMm.train()
 
-#%%
 LDAm = LDA(K, M_full, At, params, 'LDA_baseline')
 LDAm.train()
-#%%
+
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
@@ -141,7 +155,6 @@ params['train_param']['Z_step']=0
 aLDATMm = aLDA_gd(K, M_full, At, params, 'aTM_gd_baseline')
 aLDATMm.train()
 
-#%%
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
@@ -157,10 +170,9 @@ params['train_param']['Y_priorStep']=0
 
 aLDAm = aLDA_gd(K, M_full, np.eye(n_doc), params, 'aLDA_gd_baseline')
 aLDAm.train()
- #%%
+
+#%%
 Words = {}
-m = model_comparison(M_full, At, Words, models = [LDAm,aLDAm,aTMm,aLDATMm])   
+m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
 m.compute_scores(10)
 
- #%%
-    

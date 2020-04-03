@@ -14,6 +14,7 @@ import numpy as np
 import time
 from scipy.io import loadmat
 from gensim.models.coherencemodel import CoherenceModel
+import matplotlib.pyplot as plt
 #%%
 
 class model_comparison():
@@ -145,9 +146,9 @@ params['init_mat'] = {}
 params['init_mat']['A'] = normalize(At,'l1',0)
 params['init_mat']['theta'] = aTMm.theta
 params['init_mat']['phi'] = aTMm.phi
-params['train_param']['step']=0.0001
-params['train_param']['n_itMax']= 20
-params['train_param']['b_mom']=0.001
+params['train_param']['step']=0.002
+params['train_param']['n_itMax']= 400
+params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
 params['train_param']['Z_step']=0
@@ -162,9 +163,9 @@ params['init_mat'] = {}
 params['init_mat']['A'] = At#np.eye(n_doc)
 params['init_mat']['theta'] = LDAm.theta
 params['init_mat']['phi'] = LDAm.phi
-params['train_param']['step']=0.0001
-params['train_param']['n_itMax']= 20
-params['train_param']['b_mom']=0.001
+params['train_param']['step']=0.002
+params['train_param']['n_itMax']= 400
+params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
 
@@ -173,6 +174,26 @@ aLDAm.train()
 
 #%%
 Words = {}
+
 m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
 m.compute_scores(10)
+
+#%% Draft check learning
+
+plt.subplot(1,2,1)
+plt.plot(aLDAm.llgd[:,0])
+plt.subplot(1,2,2)
+plt.plot(aLDATMm.llgd[:,0])
+
+#%% visualize topics
+
+import pyLDAvis.gensim
+import pyLDAvis# Visualize the topics
+
+
+LDAvis_prepared = pyLDAvis.gensim.prepare(LDAm.LDA,bow,dct)
+pyLDAvis.show(LDAvis_prepared)
+
+
+
 

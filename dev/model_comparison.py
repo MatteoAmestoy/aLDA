@@ -123,7 +123,8 @@ K = 50
 
 
 M_full = X
-At = np.eye(M_full.shape[1])
+At = np.eye(M_full.shape[1
+                         ])
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
@@ -178,6 +179,8 @@ Words = {}
 m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
 m.compute_scores(10)
 
+#m = model_comparison(X, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim_test)   
+#m.compute_scores(10)
 #%% Draft check learning
 
 plt.subplot(1,2,1)
@@ -186,7 +189,6 @@ plt.subplot(1,2,2)
 plt.plot(aLDATMm.llgd[:,0])
 
 #%% visualize topics
-
 import pyLDAvis.gensim
 import pyLDAvis# Visualize the topics
 

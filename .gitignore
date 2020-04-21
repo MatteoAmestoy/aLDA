@@ -2,3 +2,4 @@
 data/nips_1-17.mat
 *.tokens
 *.raw
+*.xlsx

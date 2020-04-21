@@ -30,18 +30,25 @@ for d in data:
         datagensim += [[i for i in test.split(" ") if len(i)>3]]
 
 dct = Dictionary(datagensim)
-dct.filter_extremes(no_below=10, no_above=0.5 )
+dct.filter_extremes(no_below=2, no_above=0.9 )
 dct.compactify()
 X = np.zeros((len(dct.keys()),len(datagensim)),int)
 i = 0
 bow = []
+datagensimClean = []
 for d in datagensim:
-    tmp = dct.doc2bow(d)
+    
+    idx = dct.doc2idx(d)
+    dC = [d[i] for i in range(len(d)) if idx[i]>-1]
+    tmp = dct.doc2bow(dC)
+    datagensimClean += [dC]
     bow += [tmp] 
     for key, value in tmp:
         X[key,i] = value
     i +=1
-##%% Test data
+    
+datagensim =  datagensimClean 
+#%% Test data
 #with open(r'C:\Users\Matteo\Documents\Git\aLDA\data\wikitext-2-raw\wiki.test.raw', encoding="utf8") as file:  
 #    dataRaw = file.read()
 #

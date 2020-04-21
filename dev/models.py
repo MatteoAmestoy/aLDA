@@ -136,6 +136,7 @@ class aLDA_gd():
               
               # Store ll
               self.llgd[it+1,:] = self.loglik(theta,phi,A)
+              print('It num: '+ str(it))
 
                     
         # Store estimates
@@ -167,7 +168,7 @@ class LDA():
 
 
     def train(self):    
-        self.LDA = LdaModel(self.train_C_, num_topics=self.K)
+        self.LDA = LdaModel(self.train_C_, num_topics=self.K, decay = 0.5, offset = 1024)
         self.phi = self.LDA.get_topics().transpose()
         self.theta = np.zeros((self.K,self.n_d))
         for d in  range(self.n_d):
@@ -177,6 +178,7 @@ class LDA():
         self.D_reb = self.phi.dot(self.theta)          
         return()
     
+
 #%% aTM
 
 class aTM():

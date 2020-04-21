@@ -15,6 +15,7 @@ import time
 from scipy.io import loadmat
 from gensim.models.coherencemodel import CoherenceModel
 import matplotlib.pyplot as plt
+import scipy as sc
 #%%
 
 class model_comparison():
@@ -78,7 +79,7 @@ class model_comparison():
             for l in range(L):
                 tmp += [self.dct[test[l,k]]]
             topic += [tmp]
-        aaa = CoherenceModel( topics=topic, texts=self.testText, corpus=None, dictionary=dct, window_size=None, keyed_vectors=None, coherence='c_v', topn=20, processes=-1)    
+        aaa = CoherenceModel( topics=topic, texts=self.testText, dictionary=dct, window_size=40,coherence='c_npmi', topn = 5)    
 
         return(aaa.get_coherence())
     
@@ -123,8 +124,7 @@ K = 50
 
 
 M_full = X
-At = np.eye(M_full.shape[1
-                         ])
+At = np.eye(M_full.shape[1])
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
@@ -134,11 +134,11 @@ K = 50
 
 params ={}
 params['train_param'] = {}
+
+
 aTMm = aTM(K, M_full, At, params, 'aTM_baseline')
 aTMm.train()
 
-LDAm = LDA(K, M_full, At, params, 'LDA_baseline')
-LDAm.train()
 
 params['alpha'] = 1
 params['beta'] = 1
@@ -147,8 +147,8 @@ params['init_mat'] = {}
 params['init_mat']['A'] = normalize(At,'l1',0)
 params['init_mat']['theta'] = aTMm.theta
 params['init_mat']['phi'] = aTMm.phi
-params['train_param']['step']=0.002
-params['train_param']['n_itMax']= 400
+params['train_param']['step']=0.0009
+params['train_param']['n_itMax']= 70
 params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
@@ -157,18 +157,28 @@ params['train_param']['Z_step']=0
 aLDATMm = aLDA_gd(K, M_full, At, params, 'aTM_gd_baseline')
 aLDATMm.train()
 
+#%%
+
+
+params ={}
+params['train_param'] = {}
+LDAm = LDA(K, M_full, At, params, 'LDA_baseline')
+LDAm.train()
+
+
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
 params['init_mat'] = {}
-params['init_mat']['A'] = At#np.eye(n_doc)
+params['init_mat']['A'] = np.eye(n_doc)
 params['init_mat']['theta'] = LDAm.theta
 params['init_mat']['phi'] = LDAm.phi
-params['train_param']['step']=0.002
-params['train_param']['n_itMax']= 400
+params['train_param']['step']=0.00008
+params['train_param']['n_itMax']= 60
 params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
+params['train_param']['Z_step']=0
 
 aLDAm = aLDA_gd(K, M_full, np.eye(n_doc), params, 'aLDA_gd_baseline')
 aLDAm.train()
@@ -176,11 +186,26 @@ aLDAm.train()
 #%%
 Words = {}
 
-m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
+#m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
+#m.compute_scores(10)
+
+#m = model_comparison(M_full, At, {}, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = {})
+
+
+   
+#m.compute_scores(10)    
+#m = model_comparison(X, At, dct, models = [LDAm,aLDAm], testText = datagensim)   
+#m.compute_scores(10)
+
+m = model_comparison(X, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
 m.compute_scores(10)
 
 #m = model_comparison(X, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim_test)   
 #m.compute_scores(10)
+
+
+
+
 #%% Draft check learning
 
 plt.subplot(1,2,1)
@@ -197,5 +222,7 @@ LDAvis_prepared = pyLDAvis.gensim.prepare(LDAm.LDA,bow,dct)
 pyLDAvis.show(LDAvis_prepared)
 
 
+#%%
 
+dct.add_documents(common_corpus)
 

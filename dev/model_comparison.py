@@ -123,13 +123,13 @@ K = 50
 #%% Wiki Data
 
 
-M_full = X
+M_full = X.T
 At = np.eye(M_full.shape[1])
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
 
-
+#np.sum(np.sum(np.log(phi.dot(theta).dot(A))*self.D))
 #%% Train data
 
 params ={}
@@ -183,6 +183,7 @@ params['train_param']['Z_step']=0
 aLDAm = aLDA_gd(K, M_full, np.eye(n_doc), params, 'aLDA_gd_baseline')
 aLDAm.train()
 
+
 #%%
 Words = {}
 
@@ -194,13 +195,13 @@ Words = {}
 
    
 #m.compute_scores(10)    
-#m = model_comparison(X, At, dct, models = [LDAm,aLDAm], testText = datagensim)   
+#m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm], testText = datagensim)   
 #m.compute_scores(10)
 
-m = model_comparison(X, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
+m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
 m.compute_scores(10)
 
-#m = model_comparison(X, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim_test)   
+#m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim_test)   
 #m.compute_scores(10)
 
 

@@ -65,7 +65,7 @@ class aLDA_gd():
               - phi [n_dic,K float] each column is the distribution of words for a thopic
               - A [n_a,n_d float] each column is the distribution of authors for a document
         '''
-        M = np.sum(np.sum(np.log(phi.dot(theta).dot(A))*self.D)) # Likelihood
+        M = np.sum(np.sum(np.log(A.T.dot(phi.dot(theta).T)).T*self.D_reb))# Likelihood
         pTheta = np.sum((self.alpha - 1).dot(np.log(theta))) # Dirichlet prior 
         pPhi = np.sum((self.beta - 1).dot(np.log(phi))) # Dirichlet prior 
         pA = 1#(self.gamma - 1)*np.sum(np.log(A**self.AMask)) # Dirichlet prior constant gamma

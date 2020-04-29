@@ -30,6 +30,7 @@ class aLDA_gd():
             - alpha[n_a float] priors on theta
             - beta [n_dic float] priors on  phi
             - gamma [flaot] prior on A
+            
             - init_mat dic with fields TBW
         - name = char name of the model
         '''        
@@ -65,7 +66,7 @@ class aLDA_gd():
               - phi [n_dic,K float] each column is the distribution of words for a thopic
               - A [n_a,n_d float] each column is the distribution of authors for a document
         '''
-        M = np.sum(np.sum(np.log(A.T.dot(phi.dot(theta).T)).T*self.D_reb))# Likelihood
+        M = np.sum(np.sum(np.log(A.T.dot(phi.dot(theta).T)).T*self.D))# Likelihood
         pTheta = np.sum((self.alpha - 1).dot(np.log(theta))) # Dirichlet prior 
         pPhi = np.sum((self.beta - 1).dot(np.log(phi))) # Dirichlet prior 
         pA = 1#(self.gamma - 1)*np.sum(np.log(A**self.AMask)) # Dirichlet prior constant gamma
@@ -85,7 +86,7 @@ class aLDA_gd():
         else:
               Y = np.random.normal(0,1,(self.n_dic,self.K))
         if 'A' in dic_keys:
-              Z = np.log(self.init_mat['A']+sys.float_info.epsilon)
+              Z = self.init_mat['A']#np.log(self.init_mat['A']+sys.float_info.epsilon)
         else:
               Z = np.random.normal(0,1,(self.AMask.shape))
         return(X,Y,Z)
@@ -104,21 +105,21 @@ class aLDA_gd():
         
         theta = normalize(np.exp(X),'l1',0)
         phi = normalize(np.exp(Y),'l1',0)
-        A = normalize(self.AMask*np.exp(Z),'l1',0)
+        A = self.AMask #normalize(self.AMask.multiply(np.exp(Z)),'l1',0)
         
         VX = np.zeros((self.K,self.n_a))
         VY = np.zeros((self.n_dic,self.K))
-        VZ = np.zeros(self.AMask.shape)
+        VZ = self.AMask.multiply(np.zeros(self.AMask.shape))
         
         self.llgd[0,:] = self.loglik(theta,phi,A)
     
         # gradient descent to maximize the posterior likelihood ----------- 
         for it in range(n_itMax-1): 
               # Ratio matrix (\tilde{D} in paper)
-              Dg = self.D/(phi.dot(theta.dot(A)))
+              Dg = self.D/(phi.dot(A.T.dot(theta.T).T))
               
               # Compute gradient and update
-              dX = theta*(phi.T.dot(Dg.dot(A.T))-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+X_priorStep*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
+              dX = theta*(phi.T.dot(A.dot(Dg.T).T)-np.diag(A.dot(Dg.T.dot(phi.dot(theta)))))+X_priorStep*(self.alpha[:, None]-1-theta*np.sum(self.alpha-1))
               VX = b_mom*VX + (1-b_mom)*dX
               X = X + step*VX
               theta = normalize(np.exp(X),'l1',0)
@@ -129,10 +130,10 @@ class aLDA_gd():
               phi = normalize(np.exp(Y),'l1',0)
               
               
-              dZ = A*(theta.T.dot(phi.T.dot(Dg)-np.diag(Dg.T.dot(phi.dot(theta.dot(A))))))
-              VZ = b_mom*VZ + (1-b_mom)*dZ+1*((self.gamma-1)*(1-A*np.sum(self.AMask,0)))
-              Z = Z + Z_step*VZ    
-              A = normalize(self.AMask*np.exp(Z),'l1',0) 
+#              dZ = A.multiply(theta.T.dot(phi.T.dot(Dg)-np.diag(Dg.T.dot(phi.dot(A.T.dot(theta.T).T)))))#+1*((self.gamma-1)*(1-A.multiply(np.sum(self.AMask,0))))
+#              VZ = b_mom*VZ + (1-b_mom)*dZ
+#              Z = Z + Z_step*VZ    
+#              A = self.AMask.multiply(normalize(np.exp(Z),'l1',0))
               
               # Store ll
               self.llgd[it+1,:] = self.loglik(theta,phi,A)
@@ -143,7 +144,7 @@ class aLDA_gd():
         self.theta = theta
         self.phi = phi
         self.A = A
-        self.D_reb = phi.dot(theta).dot(A)
+        self.D_reb = A.T.dot(phi.dot(theta).T).T
     def train(self):
         self.gd_ll(self.train_param['step'], self.train_param['n_itMax'], self.train_param['b_mom'] , self.train_param['X_priorStep'], self.train_param['Y_priorStep'], self.train_param['Z_step'])    
         return()
@@ -168,7 +169,7 @@ class LDA():
 
 
     def train(self):    
-        self.LDA = LdaModel(self.train_C_, num_topics=self.K, decay = 0.5, offset = 1024)
+        self.LDA = LdaModel(self.train_C_, num_topics=self.K, decay = 0.5, offset = 1024, passes = 80)
         self.phi = self.LDA.get_topics().transpose()
         self.theta = np.zeros((self.K,self.n_d))
         for d in  range(self.n_d):
@@ -203,7 +204,7 @@ class aTM():
 
 
     def train(self):     
-        self.aTM = AuthorTopicModel(self.train_C_ , author2doc=self.Adic, num_topics=self.K)
+        self.aTM = AuthorTopicModel(self.train_C_ , author2doc=self.Adic, num_topics=self.K, passes = 100)
         self.phi = self.aTM.get_topics().transpose()
         self.theta = np.zeros((self.K,self.n_a))
         for a in  range(self.n_a):

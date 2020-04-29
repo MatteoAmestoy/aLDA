@@ -16,6 +16,7 @@ from scipy.io import loadmat
 from gensim.models.coherencemodel import CoherenceModel
 import matplotlib.pyplot as plt
 import scipy as sc
+import pickle
 #%%
 
 class model_comparison():
@@ -79,7 +80,7 @@ class model_comparison():
             for l in range(L):
                 tmp += [self.dct[test[l,k]]]
             topic += [tmp]
-        aaa = CoherenceModel( topics=topic, texts=self.testText, dictionary=dct, window_size=40,coherence='c_npmi', topn = 5)    
+        aaa = CoherenceModel( topics=topic, texts=self.testText, dictionary=self.dct, window_size=80,coherence='c_npmi', topn = L)    
 
         return(aaa.get_coherence())
     
@@ -120,67 +121,73 @@ At = np.delete(At,empty_idx,1)
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
-#%% Wiki Data
+#%% Wiki Data/20NG
 
 
-M_full = X.T
+M_full = X
 At = np.eye(M_full.shape[1])
+As = sc.sparse.eye(M_full.shape[1])
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
 
-#np.sum(np.sum(np.log(phi.dot(theta).dot(A))*self.D))
+
+
+
 #%% Train data
+
+
+
 
 params ={}
 params['train_param'] = {}
-
-
 aTMm = aTM(K, M_full, At, params, 'aTM_baseline')
 aTMm.train()
-
+with open(r'C:\Users\Matteo\Desktop\company_data.pkl', 'wb') as output:
+    pickle.dump(aTMm, output, pickle.HIGHEST_PROTOCOL)
 
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
 params['init_mat'] = {}
-params['init_mat']['A'] = normalize(At,'l1',0)
+params['init_mat']['A'] = normalize(As,'l1',0)
 params['init_mat']['theta'] = aTMm.theta
 params['init_mat']['phi'] = aTMm.phi
+
 params['train_param']['step']=0.0009
-params['train_param']['n_itMax']= 70
+params['train_param']['n_itMax']= 120
 params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
 params['train_param']['Z_step']=0
 
-aLDATMm = aLDA_gd(K, M_full, At, params, 'aTM_gd_baseline')
+aLDATMm = aLDA_gd(K, M_full, As, params, 'aTM_gd_baseline')
 aLDATMm.train()
 
 #%%
 
 
-params ={}
-params['train_param'] = {}
+
 LDAm = LDA(K, M_full, At, params, 'LDA_baseline')
 LDAm.train()
 
-
+params ={}
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
 params['init_mat'] = {}
-params['init_mat']['A'] = np.eye(n_doc)
+params['init_mat']['A'] = As
 params['init_mat']['theta'] = LDAm.theta
 params['init_mat']['phi'] = LDAm.phi
-params['train_param']['step']=0.00008
-params['train_param']['n_itMax']= 60
+params['train_param'] = {}
+params['train_param']['step']=0.0008
+params['train_param']['n_itMax']= 120
 params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
 params['train_param']['Z_step']=0
 
-aLDAm = aLDA_gd(K, M_full, np.eye(n_doc), params, 'aLDA_gd_baseline')
+aLDAm = aLDA_gd(K, M_full, sc.sparse.eye(M_full.shape[1]), params, 'aLDA_gd_baseline')
 aLDAm.train()
 
 
@@ -191,14 +198,12 @@ Words = {}
 #m.compute_scores(10)
 
 #m = model_comparison(M_full, At, {}, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = {})
-
-
-   
 #m.compute_scores(10)    
-#m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm], testText = datagensim)   
+
+#m = model_comparison(M_full, At, dct, models = [aTMm,aLDATMm], testText = datagensim)   
 #m.compute_scores(10)
 
-m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim)   
+m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = dataAkashText)   
 m.compute_scores(10)
 
 #m = model_comparison(M_full, At, dct, models = [LDAm,aLDAm,aTMm,aLDATMm], testText = datagensim_test)   

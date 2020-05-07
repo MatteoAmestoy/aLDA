@@ -130,29 +130,27 @@ As = sc.sparse.eye(M_full.shape[1])
 n_dic,n_doc = M_full.shape
 n_a = At.shape[0]
 K = 50
-
+dataName = '20NG'
 
 
 
 #%% Train data
 
-
-
-
 params ={}
 params['train_param'] = {}
-aTMm = aTM(K, M_full, At, params, 'aTM_baseline')
+aTMm = aTM(K, M_full, At, params, 'aTM_baseline', dataName)
 aTMm.train()
-with open(r'C:\Users\Matteo\Desktop\company_data.pkl', 'wb') as output:
-    pickle.dump(aTMm, output, pickle.HIGHEST_PROTOCOL)
+aTMm.save(r'C:\Users\Matteo\Desktop\ ')
 
+with open(r'C:\Users\Matteo\Desktop\ ' + 'aTM_baseline'+'_'+dataName+'.pkl', 'rb') as f:
+    data = pickle.load(f)
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
 params['init_mat'] = {}
-params['init_mat']['A'] = normalize(As,'l1',0)
-params['init_mat']['theta'] = aTMm.theta
-params['init_mat']['phi'] = aTMm.phi
+params['init_mat']['A'] = data['A']
+params['init_mat']['theta'] = data['theta']
+params['init_mat']['phi'] = data['phi']
 
 params['train_param']['step']=0.0009
 params['train_param']['n_itMax']= 120
@@ -161,35 +159,38 @@ params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
 params['train_param']['Z_step']=0
 
-aLDATMm = aLDA_gd(K, M_full, As, params, 'aTM_gd_baseline')
+aLDATMm = aLDA_gd(K, M_full, As, params, 'aTM_gd_baseline', dataName)
 aLDATMm.train()
-
+aLDATMm.save(r'C:\Users\Matteo\Desktop\ ')
 #%%
 
 
 
-LDAm = LDA(K, M_full, At, params, 'LDA_baseline')
+LDAm = LDA(K, M_full, At, params, 'LDA_baseline', dataName)
 LDAm.train()
+LDAm.save(r'C:\Users\Matteo\Desktop\ ')
 
+with open(r'C:\Users\Matteo\Desktop\ ' + 'LDA_baseline'+'_'+dataName+'.pkl', 'rb') as f:
+    data = pickle.load(f)
 params ={}
 params['alpha'] = 1
 params['beta'] = 1
 params['gamma'] = 1
 params['init_mat'] = {}
-params['init_mat']['A'] = As
-params['init_mat']['theta'] = LDAm.theta
-params['init_mat']['phi'] = LDAm.phi
+params['init_mat']['A'] = data['A']
+params['init_mat']['theta'] = data['theta']
+params['init_mat']['phi'] = data['phi']
 params['train_param'] = {}
-params['train_param']['step']=0.0008
+params['train_param']['step']=0.00008
 params['train_param']['n_itMax']= 120
 params['train_param']['b_mom']=0.01
 params['train_param']['X_priorStep']=0
 params['train_param']['Y_priorStep']=0
 params['train_param']['Z_step']=0
 
-aLDAm = aLDA_gd(K, M_full, sc.sparse.eye(M_full.shape[1]), params, 'aLDA_gd_baseline')
+aLDAm = aLDA_gd(K, M_full, sc.sparse.eye(M_full.shape[1]), params, 'aLDA_gd_baseline', dataName)
 aLDAm.train()
-
+aLDAm.save(r'C:\Users\Matteo\Desktop\ ')
 
 #%%
 Words = {}

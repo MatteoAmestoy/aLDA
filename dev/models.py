@@ -14,12 +14,12 @@ import numpy as np
 import sys
 from sklearn.preprocessing import normalize
 from gensim.models import AuthorTopicModel,LdaModel
-
+import pickle
 
 #%%
 
 class aLDA_gd():
-    def __init__(self, K, data, AMask, params, name):
+    def __init__(self, K, data, AMask, params, name,dataName):
         '''
         Input:
         - K = [int] nb of topics
@@ -40,7 +40,7 @@ class aLDA_gd():
         self.D = data
         self.n_dic,self.n_d = self.D.shape    
         self.name = name
-
+        self.dataName = dataName
         if np.size(params['alpha']) == 1:
               self.alpha = params['alpha']*np.ones(self.K) # [float] prior theta
         elif np.size(params['alpha']) == self.K:
@@ -149,12 +149,25 @@ class aLDA_gd():
         self.gd_ll(self.train_param['step'], self.train_param['n_itMax'], self.train_param['b_mom'] , self.train_param['X_priorStep'], self.train_param['Y_priorStep'], self.train_param['Z_step'])    
         return()
 
+    def save(self, path):
+        '''
+        path 
+        '''
+        toSave = {}
+        toSave['theta'] = self.theta
+        toSave['phi'] = self.phi
+        toSave['A'] = self.A
+        toSave['gd_ll'] = self.gd_ll
+        toSave['K'] = self.K
+        toSave['train_param'] = self.train_param
+        with open(path + self.name+'_'+self.dataName+'.pkl', 'wb') as output:
+            pickle.dump(toSave, output, pickle.HIGHEST_PROTOCOL)
 #%% LDA
 
 
 
 class LDA():
-    def __init__(self, K, data, AMask, params, name):
+    def __init__(self, K, data, AMask, params, name, dataName):
         self.K = K # [int] nb of topics
         self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
         self.n_a,self.n_d = self.AMask.shape # [int] nb authors
@@ -166,7 +179,7 @@ class LDA():
         for d in range(self.n_d):
               self.train_C_.append([(k,self.D[k,d]) for k in range(self.n_dic)])
         
-
+        self.dataName = dataName
 
     def train(self):    
         self.LDA = LdaModel(self.train_C_, num_topics=self.K, decay = 0.5, offset = 1024, passes = 80)
@@ -176,14 +189,26 @@ class LDA():
             tmp = self.LDA.get_document_topics(self.train_C_[d])
             ind = [c for (c,b) in tmp]
             self.theta[ind,d] = [b for (c,b) in tmp]
-        self.D_reb = self.phi.dot(self.theta)          
+        self.D_reb = self.phi.dot(self.theta)   
+        self.A = normalize(self.AMask,'l1',0)
         return()
-    
+    def save(self, path):
+        '''
+        path example
+        '''
+        toSave = {}
+        toSave['theta'] = self.theta
+        toSave['phi'] = self.phi
+        toSave['A'] = self.A
+        toSave['K'] = self.K
+        toSave['train_param'] = self.train_param
+        with open(path + self.name+'_'+self.dataName+'.pkl', 'wb') as output:
+            pickle.dump(toSave, output, pickle.HIGHEST_PROTOCOL)    
 
 #%% aTM
 
 class aTM():
-    def __init__(self, K, data, AMask, params, name):
+    def __init__(self, K, data, AMask, params, name, dataName):
         self.K = K # [int] nb of topics
         self.AMask = AMask # [n_a,n_d float] matrix of author participation to each paper (1 if author participated to paper)
         self.n_a,self.n_d = self.AMask.shape # [int] nb authors
@@ -200,19 +225,31 @@ class aTM():
         for a in  range(self.n_a):
             self.Adic[str(a)] = list(np.where(self.AMask[a,:]>0)[0])
             
-        
+        self.dataName = dataName
 
 
     def train(self):     
         self.aTM = AuthorTopicModel(self.train_C_ , author2doc=self.Adic, num_topics=self.K, passes = 100)
         self.phi = self.aTM.get_topics().transpose()
         self.theta = np.zeros((self.K,self.n_a))
+        self.A = normalize(self.AMask,'l1',0)
         for a in  range(self.n_a):
             self.theta[:,a] = [b for (c,b) in self.aTM.get_author_topics(str(a),0)]
         
-        self.D_reb = self.phi.dot(self.theta).dot(normalize(self.AMask,'l1',0))    
+        self.D_reb = self.phi.dot(self.theta).dot(self.A)    
 
-
+    def save(self, path):
+        '''
+        path example 
+        '''
+        toSave = {}
+        toSave['theta'] = self.theta
+        toSave['phi'] = self.phi
+        toSave['A'] = self.A
+        toSave['K'] = self.K
+        toSave['train_param'] = self.train_param
+        with open(path + self.name+'_'+self.dataName+'.pkl', 'wb') as output:
+            pickle.dump(toSave, output, pickle.HIGHEST_PROTOCOL) 
 
 
 
